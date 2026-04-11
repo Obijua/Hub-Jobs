@@ -1,0 +1,9 @@
+{
+  "name": "Hub & Jobs",
+  "description": "Nigeria's #1 hub for jobs, scholarships, free courses, internships and opportunities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A blog post or opportunity listing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string", "enum": ["job", "scholarship", "free-course", "udemy-coupon", "internship", "opportunity"] },
+        "description": { "type": "string" },
+        "thumbnail": { "type": "string", "format": "url" },
+        "externalLink": { "type": "string", "format": "url" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "isFeatured": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "views": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["title", "slug", "category", "description", "thumbnail", "externalLink", "isActive", "createdAt", "authorUid"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "A newsletter subscriber.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "subscribedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "subscribedAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "An admin user profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Monetization": {
+      "title": "Monetization",
+      "description": "Ad monetization settings for various networks and zones.",
+      "type": "object",
+      "properties": {
+        "networks": { "type": "object" },
+        "zones": { "type": "object" },
+        "adFrequency": { "type": "number" },
+        "adsOnMobile": { "type": "boolean" },
+        "hideAdsForAdmin": { "type": "boolean" }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A category for opportunity posts.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "displayOrder": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name", "slug", "displayOrder", "isActive"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of all opportunity posts."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of opportunity categories."
+    },
+    "/subscribers/{subscriberId}": {
+      "schema": "Subscriber",
+      "description": "Collection of newsletter subscribers."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of admin user profiles."
+    },
+    "/settings/monetization": {
+      "schema": "Monetization",
+      "description": "Ad monetization settings."
+    }
+  }
+}
