@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { db, auth } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { MonetizationConfig } from '../../types';
@@ -10,14 +10,17 @@ interface AdSlotProps {
   className?: string;
 }
 
-// ✅ helper to prevent trim crashes
-const safeTrim = (val?: string) => val?.trim() || '';
+// ✅ BULLETPROOF trim
+const safeTrim = (val: unknown): string => {
+  return typeof val === 'string' ? val.trim() : '';
+};
 
 export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
   const [config, setConfig] = useState<MonetizationConfig | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const adRef = useRef<HTMLDivElement>(null);
+  const hasInjectedRef = useRef(false); // ✅ prevent duplicate scripts
 
   // ✅ Fetch config safely
   useEffect(() => {
@@ -27,7 +30,6 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
 
-          // ✅ normalize ALL adCode fields
           setConfig({
             ...data,
             articleAdCode: data.articleAdCode ?? '',
@@ -49,59 +51,61 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
     }
   }, []);
 
-  // ✅ Centralized zone logic (no duplication anymore)
-  const getZoneSettings = () => {
+  // ✅ Memoized zone logic (stable + safe)
+  const zoneSettings = useMemo(() => {
     if (!config) return { enabled: false, network: 'Off', code: '' };
 
     let enabled = false;
     let network = 'Off';
-    let code = '';
+    let code: unknown = '';
 
     if (zone === 'post-detail-top' || zone === 'post-detail-bottom') {
       enabled = config.articleAdsEnabled;
       network = config.articleAdNetwork;
-      code = config.articleAdCode || '';
+      code = config.articleAdCode;
 
       if (zone === 'post-detail-top' && !config.aboveArticleAdEnabled) enabled = false;
       if (zone === 'post-detail-bottom' && !config.belowArticleAdEnabled) enabled = false;
     } else if (zone === 'sidebar') {
       enabled = config.sidebarAdEnabled;
       network = config.articleAdNetwork;
-      code = config.sidebarAdCode || '';
+      code = config.sidebarAdCode;
     } else if (zone.startsWith('homepage')) {
       enabled = config.homepageAdsEnabled;
       network = config.homepageAdNetwork;
-      code = config.homepageAdCode || '';
+      code = config.homepageAdCode;
 
       if (zone === 'homepage-hero-bottom') {
         enabled = config.heroAdEnabled;
-        code = config.heroAdCode || '';
+        code = config.heroAdCode;
       }
     } else if (zone === 'between-posts') {
       enabled = config.blogAdsEnabled;
       network = config.articleAdNetwork;
-      code = config.articleAdCode || '';
+      code = config.articleAdCode;
     } else {
       const legacy = config.zones?.[zone];
       enabled = legacy?.enabled || false;
       network = legacy?.network || 'Custom Code';
-      code = legacy?.adCode || '';
+      code = legacy?.adCode;
     }
 
-    return { enabled, network, code };
-  };
+    return {
+      enabled,
+      network,
+      code: safeTrim(code), // ✅ sanitize here once
+    };
+  }, [config, zone]);
 
-  // ✅ Lazy load observer
+  // ✅ Lazy load
   useEffect(() => {
     if (!config || !adRef.current || !config.masterSwitch) return;
 
-    const { enabled, network, code } = getZoneSettings();
-
-    if (!enabled || network === 'Off' || !safeTrim(code)) return;
+    if (!zoneSettings.enabled || zoneSettings.network === 'Off' || !zoneSettings.code) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
+      ([entry]) => {
+        if (entry.isIntersecting) {
           setIsVisible(true);
           observer.disconnect();
         }
@@ -111,20 +115,20 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
 
     observer.observe(adRef.current);
     return () => observer.disconnect();
-  }, [config, zone]);
+  }, [config, zoneSettings]);
 
-  // ✅ Inject ads safely
+  // ✅ Inject ads safely (NO duplicates)
   useEffect(() => {
     if (!isVisible || !config || !adRef.current || isAdmin) return;
-
-    const { network, code } = getZoneSettings();
-    if (!safeTrim(code) || network === 'Off') return;
+    if (!zoneSettings.code || zoneSettings.network === 'Off') return;
+    if (hasInjectedRef.current) return; // ✅ STOP duplicates
 
     const container = adRef.current;
-    container.innerHTML = code;
+    container.innerHTML = zoneSettings.code;
+    hasInjectedRef.current = true;
 
-    // execute scripts
     const scripts = container.getElementsByTagName('script');
+
     for (let i = 0; i < scripts.length; i++) {
       const s = document.createElement('script');
       const original = scripts[i];
@@ -138,46 +142,24 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
       document.body.appendChild(s);
     }
 
-    // AdSense handling
-    if (code.includes('adsbygoogle') || network === 'AdSense') {
-      const pushAd = () => {
-        try {
-          (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-          (window as any).adsbygoogle.push({});
-        } catch (e) {
-          console.error('AdSense error:', e);
-        }
-      };
-
-      const check = () => {
-        if (container.offsetWidth >= 120) {
-          pushAd();
-          return true;
-        }
-        return false;
-      };
-
-      if (!check()) {
-        const ro = new ResizeObserver(() => {
-          if (check()) ro.disconnect();
-        });
-
-        ro.observe(container);
-        setTimeout(() => ro.disconnect(), 5000);
+    // ✅ AdSense safe push
+    if (zoneSettings.code.includes('adsbygoogle') || zoneSettings.network === 'AdSense') {
+      try {
+        (window as any).adsbygoogle = (window as any).adsbygoogle || [];
+        (window as any).adsbygoogle.push({});
+      } catch (e) {
+        console.error('AdSense error:', e);
       }
     }
-  }, [isVisible, config, isAdmin, zone]);
+  }, [isVisible, config, isAdmin, zoneSettings]);
 
   if (!config || !config.masterSwitch) return null;
 
-  const { enabled, network } = getZoneSettings();
+  // ✅ safer viewport checks
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
 
-  const isMobile =
-    typeof window !== 'undefined' && window.innerWidth < 768;
-  const isDesktop =
-    typeof window !== 'undefined' && window.innerWidth >= 1024;
-
-  if (!enabled || network === 'Off') return null;
+  if (!zoneSettings.enabled || zoneSettings.network === 'Off') return null;
   if (config.hideAdsOnMobile && isMobile) return null;
   if (zone === 'sidebar' && !isDesktop) return null;
 

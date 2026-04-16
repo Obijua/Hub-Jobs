@@ -6,104 +6,122 @@ interface InArticleAdProps {
   position: number;
 }
 
+// ✅ SAFE helper (prevents ALL trim crashes)
+const safeTrim = (val?: string) => (typeof val === 'string' ? val.trim() : '');
+
 const InArticleAd = ({ position }: InArticleAdProps) => {
   const [adConfig, setAdConfig] = useState<any>(null);
   const adRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
+  // ✅ Fetch config safely + normalize fields
   useEffect(() => {
     const fetchAdConfig = async () => {
       try {
-        const snap = await getDoc(
-          doc(db, 'settings', 'monetization')
-        );
+        const snap = await getDoc(doc(db, 'settings', 'monetization'));
         if (snap.exists()) {
-          setAdConfig(snap.data());
+          const data = snap.data();
+
+          setAdConfig({
+            ...data,
+            articleAdCode: data.articleAdCode ?? '',
+            articleAdNetwork: data.articleAdNetwork ?? 'Off',
+          });
         }
       } catch (e) {
         console.error('Ad config error:', e);
       }
     };
+
     fetchAdConfig();
   }, []);
 
+  // ✅ Inject ad safely
   useEffect(() => {
-    if (!adConfig || initialized.current || !adRef.current) 
-      return;
+    if (!adConfig || initialized.current || !adRef.current) return;
     initialized.current = true;
 
-    // Initialize Ad if enabled
     if (!adConfig.masterSwitch || !adConfig.articleAdsEnabled) return;
 
     const container = adRef.current;
-    if (!container) return;
-
     const network = adConfig.articleAdNetwork;
     const code = adConfig.articleAdCode;
 
-    if (network === 'Off' || !code.trim()) return;
+    // ✅ FIXED: safe check (NO MORE CRASH)
+    if (network === 'Off' || !safeTrim(code)) return;
 
-    // Inject the ad code for all networks except legacy AdSense slot config
-    const range = document.createRange();
     try {
+      const range = document.createRange();
       const fragment = range.createContextualFragment(code);
-      container.innerHTML = ''; // Clear previous
+
+      container.innerHTML = '';
       container.appendChild(fragment);
 
-      // If it's AdSense, we might need to push
+      // ✅ AdSense safe push
       if (network === 'AdSense' || code.includes('adsbygoogle')) {
-        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+        try {
+          (window as any).adsbygoogle =
+            (window as any).adsbygoogle || [];
+          (window as any).adsbygoogle.push({});
+        } catch (e) {
+          console.error('AdSense push error:', e);
+        }
       }
     } catch (e) {
       console.error('Error injecting ad code:', e);
     }
   }, [adConfig]);
 
-  // Don't render anything if no ad config or ads disabled
-  if (!adConfig || !adConfig.masterSwitch || !adConfig.articleAdsEnabled) return null;
-  
-  if (adConfig.articleAdNetwork === 'Off') return null;
+  // ✅ Guards
+  if (!adConfig?.masterSwitch || !adConfig?.articleAdsEnabled) return null;
+  if (adConfig?.articleAdNetwork === 'Off') return null;
 
-  // Check visibility settings
   const isAdmin = !!localStorage.getItem('cb_admin_session');
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isMobile =
+    typeof window !== 'undefined' && window.innerWidth < 768;
 
   if (adConfig.hideAdsForAdmin && isAdmin) {
     return (
-      <div className="my-8 p-4 border-2 border-dashed border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-900/20 rounded-2xl text-center">
-        <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">📢 Ad Slot {position}</p>
-        <p className="text-[10px] text-amber-500 font-medium">Ads are hidden for Admin. Visitors see real ads here.</p>
+      <div className="my-8 p-4 border-2 border-dashed rounded-2xl text-center">
+        <p className="text-xs font-black mb-1">
+          📢 Ad Slot {position}
+        </p>
+        <p className="text-[10px]">
+          Ads hidden for admin
+        </p>
       </div>
     );
   }
 
-  if (adConfig.hideAdsOnMobile && isMobile) {
-    return null;
-  }
+  if (adConfig.hideAdsOnMobile && isMobile) return null;
 
   return (
     <div className="my-8 overflow-hidden">
       <div className="flex items-center justify-center space-x-4 mb-3">
-        <div className="h-[1px] flex-1 bg-gray-100 dark:bg-gray-800"></div>
-        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Advertisement</span>
-        <div className="h-[1px] flex-1 bg-gray-100 dark:bg-gray-800"></div>
+        <div className="h-[1px] flex-1 bg-gray-100 dark:bg-gray-800" />
+        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+          Advertisement
+        </span>
+        <div className="h-[1px] flex-1 bg-gray-100 dark:bg-gray-800" />
       </div>
 
       <div className="flex justify-center min-h-[100px]">
-        {/* Use the ref container for all network codes */}
         <div ref={adRef} className="w-full flex justify-center" />
-        
-        {/* Fallback to legacy AdSense slot if no code provided but AdSense is selected */}
-        {adConfig.articleAdNetwork === 'AdSense' && !adConfig.articleAdCode && adConfig.adsensePublisherId && adConfig.adsenseInArticleSlot && (
-          <ins
-            className="adsbygoogle"
-            style={{ display: 'block', textAlign: 'center', width: '100%' }}
-            data-ad-layout="in-article"
-            data-ad-format="fluid"
-            data-ad-client={adConfig.adsensePublisherId}
-            data-ad-slot={adConfig.adsenseInArticleSlot}
-          />
-        )}
+
+        {/* ✅ fallback AdSense */}
+        {adConfig.articleAdNetwork === 'AdSense' &&
+          !safeTrim(adConfig.articleAdCode) &&
+          adConfig.adsensePublisherId &&
+          adConfig.adsenseInArticleSlot && (
+            <ins
+              className="adsbygoogle"
+              style={{ display: 'block', width: '100%' }}
+              data-ad-layout="in-article"
+              data-ad-format="fluid"
+              data-ad-client={adConfig.adsensePublisherId}
+              data-ad-slot={adConfig.adsenseInArticleSlot}
+            />
+          )}
       </div>
     </div>
   );
