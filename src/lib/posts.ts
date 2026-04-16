@@ -98,9 +98,15 @@ export const incrementViews = async (id: string) => {
   }
 };
 
-export const getAllPosts = async (options?: { category?: Category; featuredOnly?: boolean; limitCount?: number }) => {
+export const getAllPosts = async (
+  options?: { category?: Category; featuredOnly?: boolean; limitCount?: number }
+): Promise<Post[]> => {
   try {
-    let q = query(collection(db, POSTS_COLLECTION), where('isActive', '==', true), orderBy('createdAt', 'desc'));
+    let q = query(
+      collection(db, POSTS_COLLECTION),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc')
+    );
 
     if (options?.category) {
       q = query(q, where('category', '==', options.category));
@@ -115,20 +121,32 @@ export const getAllPosts = async (options?: { category?: Category; featuredOnly?
     }
 
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Post));
+
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, POSTS_COLLECTION);
+    return []; // ✅ VERY IMPORTANT
   }
 };
 
 // Admin version (includes inactive posts)
-export const getAdminPosts = async () => {
+export const getAdminPosts = async (): Promise<Post[]> => {
   try {
     const q = query(collection(db, POSTS_COLLECTION), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Post));
+
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, POSTS_COLLECTION);
+    return []; // ✅ FIX
   }
 };
 
@@ -174,4 +192,42 @@ export const getRecentSubscribers = async (limitCount: number = 5) => {
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, SUBSCRIBERS_COLLECTION);
   }
+};
+
+// --- Ad Injection ---
+
+export const injectAdsIntoContent = (content: string, frequency: number, maxAds: number): string => {
+  if (!content || frequency <= 0) return content;
+  
+  // Split by paragraphs (handling both <p> and double newlines)
+  let paragraphs = content.split(/<\/p>/i).filter(p => p.trim() !== '');
+  
+  // If no <p> tags, try splitting by double newlines
+  if (paragraphs.length <= 1) {
+    paragraphs = content.split(/\n\s*\n/).filter(p => p.trim() !== '');
+  }
+
+  if (paragraphs.length <= frequency) return content;
+
+  let result = '';
+  let adsPlaced = 0;
+
+  paragraphs.forEach((p, index) => {
+    // Add paragraph back with tags if they were there
+    const pText = p.includes('<p') ? p + '</p>' : `<p>${p}</p>`;
+    result += pText;
+    
+    // Inject ad after 'frequency' paragraphs, up to 'maxAds'
+    // Don't inject after the very last paragraph
+    if ((index + 1) % frequency === 0 && adsPlaced < maxAds && index < paragraphs.length - 1) {
+      result += `
+        <div class="my-8 flex justify-center ad-injected" data-ad-index="${adsPlaced}">
+          <div id="in-article-ad-${adsPlaced}" class="w-full flex justify-center"></div>
+        </div>
+      `;
+      adsPlaced++;
+    }
+  });
+
+  return result;
 };

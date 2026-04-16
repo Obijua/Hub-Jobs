@@ -1,414 +1,217 @@
-
-/*
-import { auth } from '../lib/firebase';
-import { Post } from '../types';
 import { Link } from 'react-router-dom';
-import { Briefcase, Calendar, TrendingUp, ArrowRight, Clock, AlertTriangle, Bookmark, BookmarkCheck } from 'lucide-react';
-import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
-import { motion } from 'motion/react';
+import { Post } from '../types';
 import { cn } from '../lib/utils';
-import { useBookmarks } from '../hooks/useBookmarks';
-import { toast } from 'sonner';
+import { TrendingUp, MapPin } from 'lucide-react';
+
+interface PostCardProps {
+  post: Post;
+  featured?: boolean;
+}
 
 const getSnippet = (html: string): string => {
   if (!html) return '';
   return html
-    .replace(/<\/?(h[1-6]|p|div|li|br|tr)[^>]*>/gi, ' ')
+    .replace(/<\/?(p|div|h[1-6]|li|br)[^>]*>/gi, ' ')
     .replace(/<[^>]*>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 120);
+    .slice(0, 60);
 };
 
-interface PostCardProps {
-  post: Post;
-}
+const getApplyLabel = (category: string): string => {
+  const cat = category?.toLowerCase();
+  if (cat === 'job' || cat === 'internship') 
+    return 'Apply Now';
+  if (cat === 'scholarship') 
+    return 'Apply Now';
+  if (cat === 'free-course' || cat === 'udemy-coupon') 
+    return 'Get Free';
+  if (cat === 'opportunity') 
+    return 'Learn More';
+  return 'View Details';
+};
 
-export const PostCard = ({ post }: PostCardProps) => {
-  const deadlineDate = post.deadline?.toDate ? post.deadline.toDate() : null;
-  const isExpired = deadlineDate ? deadlineDate < new Date() : false;
-  const isExpiringSoon = deadlineDate && !isExpired && differenceInDays(deadlineDate, new Date()) <= 3;
-  const isAdmin = auth.currentUser?.email === 'clementegrinya@gmail.com';
-  const { toggleBookmark, isBookmarked } = useBookmarks();
-  const saved = isBookmarked(post.id);
+const formatDeadline = (deadline: any): string => {
+  if (!deadline) return '';
+  try {
+    const d = deadline?.seconds
+      ? new Date(deadline.seconds * 1000)
+      : new Date(deadline);
+    const diff = Math.ceil(
+      (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+    if (diff < 0) return 'Expired';
+    if (diff === 0) return 'Closes today!';
+    if (diff <= 3) return `⚠️ ${diff} days left`;
+    if (diff <= 7) return `${diff} days left`;
+    return d.toLocaleDateString('en-NG', {
+      day: 'numeric', month: 'short'
+    });
+  } catch { return ''; }
+};
+
+const isJob = (category: string): boolean => {
+  const cat = category?.toLowerCase();
+  return cat === 'job' || cat === 'internship';
+};
+
+export const PostCard = ({ post, featured = false }: PostCardProps) => {
+  const snippet = getSnippet(post.description);
+  const deadlineText = formatDeadline(post.deadline);
+  const jobPost = isJob(post.category);
 
   return (
-    <motion.div 
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      viewport={{ once: true }}
-      className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all h-full flex flex-col group relative"
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleBookmark(post.id);
-          toast.success(saved 
-            ? 'Removed from saved' 
-            : '🔖 Saved!');
-        }}
-        className={cn(
-          "absolute top-3 right-3 p-2 rounded-xl z-20",
-          "backdrop-blur-sm transition-all active:scale-90",
-          saved
-            ? "bg-primary text-white shadow-lg"
-            : "bg-white/90 text-gray-400 hover:text-primary"
+    <Link to={`/post/${post.slug}`} className="block">
+      <div className={cn(
+        "rounded-2xl flex flex-col gap-2.5 p-3.5 md:p-5",
+        "border relative overflow-hidden",
+        "transition-all duration-200",
+        "hover:-translate-y-1 hover:shadow-xl",
+        "active:scale-98 cursor-pointer",
+        featured
+          ? [
+              "bg-primary border-primary text-white",
+              "shadow-xl shadow-primary/30",
+              "hover:shadow-2xl hover:shadow-primary/40",
+            ].join(' ')
+          : [
+              "bg-white dark:bg-gray-900",
+              "border-gray-100 dark:border-gray-800",
+              "hover:border-primary",
+              "hover:shadow-primary/10",
+            ].join(' ')
+      )}>
+
+        {/* Sparkle for featured */}
+        {featured && (
+          <span className="absolute top-3 right-3 
+            text-white/70 text-lg">✦</span>
         )}
-      >
-        {saved 
-          ? <BookmarkCheck className="w-4 h-4" />
-          : <Bookmark className="w-4 h-4" />
-        }
-      </button>
 
-      {isExpired && (
-        <div className="absolute inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-          <div className="bg-red-600 text-white px-6 py-2 rounded-full font-black uppercase tracking-widest shadow-2xl rotate-[-5deg]">
-            Expired
-          </div>
-        </div>
-      )}
-
-      <Link to={`/post/${post.slug}`} className="flex flex-col h-full">
-        {post.thumbnail ? (
-          <div className="w-full h-44 overflow-hidden rounded-t-2xl flex-shrink-0 relative">
+        {/* Image — only for non-job posts */}
+        {!jobPost && post.thumbnail && (
+          <div className="w-full h-24 md:h-32 
+            rounded-xl overflow-hidden -mt-0">
             <img
               src={post.thumbnail}
               alt={post.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover
+                transition-transform duration-300
+                group-hover:scale-105"
               referrerPolicy="no-referrer"
               onError={(e) => {
-                const t = e.target as HTMLImageElement;
-                t.style.display = 'none';
-                // Show snippet instead when image fails
-                const parent = t.parentElement;
-                if (parent) parent.style.display = 'none';
+                (e.target as HTMLImageElement)
+                  .parentElement!.style.display = 'none';
               }}
             />
-            
-            {/* Category Badge *}
-            <div className="absolute top-3 left-3">
-              <span className="bg-accent text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
-                {post.category.replace('-', ' ')}
-              </span>
-            </div>
-
-            {/* Featured Badge *}
-            {post.isFeatured && (
-              <div className="absolute top-3 right-3">
-                <span className="bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
-                  Featured
-                </span>
-              </div>
-            )}
-
-            {/* Expiring Soon Badge *}
-            {isExpiringSoon && (
-              <div className="absolute bottom-3 left-3">
-                <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Expiring Soon
-                </span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-4 pb-0">
-            <div className="flex items-center justify-between text-gray-400 text-[10px] mb-3">
-              <div className="flex gap-2">
-                <span className="bg-accent/10 text-primary dark:text-accent text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                  {post.category.replace('-', ' ')}
-                </span>
-                {post.isFeatured && (
-                  <span className="bg-primary/10 text-primary dark:text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                    Featured
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
-        <div className="p-4 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-gray-400 text-[10px] mb-1">
-            <span className="flex items-center">
-              <Calendar className="h-3 w-3 mr-1" />
-              {post.createdAt?.toDate ? format(post.createdAt.toDate(), 'MMM dd, yyyy') : 'Recently'}
-            </span>
-            {isAdmin && (
-              <span className="flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                {post.views || 0} views
-              </span>
-            )}
-          </div>
-
-          <h3 className="font-black text-gray-900 dark:text-white text-sm leading-snug line-clamp-2">
-            {post.title}
-          </h3>
-
-          {/* Only show snippet when NO thumbnail *}
-          {!post.thumbnail && (
-            <p className="text-gray-500 dark:text-gray-400 text-xs line-clamp-2 leading-relaxed">
-              {getSnippet(post.description)}
-              {post.description?.length > 120 ? '...' : ''}
+        {/* Category label */}
+        <div>
+          <p className={cn(
+            "text-[10px] font-black uppercase tracking-wide",
+            featured ? "text-blue-200" : "text-gray-400"
+          )}>
+            {post.category}
+          </p>
+          {featured && (
+            <p className="text-[9px] text-blue-200 mt-0.5">
+              Featured opportunity
             </p>
           )}
         </div>
 
-        <div className="mt-auto pt-4 space-y-3">
-          {/* Deadline *}
-          <div className="flex items-center text-xs">
-            {deadlineDate ? (
-              <span className={cn(
-                "font-bold flex items-center",
-                isExpired ? "text-red-500" : isExpiringSoon ? "text-red-600" : "text-orange-600"
-              )}>
-                <Clock className="h-3 w-3 mr-1" />
-                {isExpired ? 'Expired' : `Expires in ${formatDistanceToNow(deadlineDate)}`}
-              </span>
-            ) : (
-              <span className="text-gray-400 italic">No Deadline</span>
-            )}
-          </div>
+        {/* Title */}
+        <h3 className={cn(
+          "font-black leading-tight line-clamp-3",
+          "text-[13px] md:text-base lg:text-[15px]",
+          featured 
+            ? "text-white" 
+            : "text-gray-900 dark:text-white"
+        )}>
+          {post.title}
+        </h3>
 
-          <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800">
-            <span className="text-primary dark:text-accent font-bold text-xs flex items-center group-hover:translate-x-1 transition-transform">
-              View Details <ArrowRight className="ml-1 h-3 w-3" />
-            </span>
-            {isAdmin && !post.thumbnail && (
-              <span className="text-[10px] text-gray-400 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                {post.views || 0}
-              </span>
-            )}
-          </div>
-        </div>
-      </Link>
-    </motion.div>
-  );
-};
-*/
+        {/* Checkmark list */}
+        <div className="flex flex-col gap-1.5">
 
-
-
-
-
-
-
-
-
-
-import React, { forwardRef } from 'react';
-import { auth } from '../lib/firebase';
-import { Post } from '../types';
-import { Link } from 'react-router-dom';
-import { Briefcase, Calendar, TrendingUp, ArrowRight, Clock, AlertTriangle, Bookmark, BookmarkCheck } from 'lucide-react';
-import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
-import { motion } from 'motion/react';
-import { cn } from '../lib/utils';
-import { useBookmarks } from '../hooks/useBookmarks';
-import { toast } from 'sonner';
-
-const getSnippet = (html: string): string => {
-  if (!html) return '';
-  return html
-    .replace(/<\/?(h[1-6]|p|div|li|br|tr)[^>]*>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 120);
-};
-
-interface PostCardProps {
-  post: Post;
-}
-
-export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post }, ref) => {
-  const deadlineDate = post.deadline?.toDate ? post.deadline.toDate() : null;
-  const isExpired = deadlineDate ? deadlineDate < new Date() : false;
-  const isExpiringSoon = deadlineDate && !isExpired && differenceInDays(deadlineDate, new Date()) <= 3;
-  const isAdmin = auth.currentUser?.email === 'clementegrinya@gmail.com';
-  const { toggleBookmark, isBookmarked } = useBookmarks();
-  const saved = isBookmarked(post.id);
-
-  return (
-    <motion.div 
-      ref={ref}
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      viewport={{ once: true }}
-      className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all h-full flex flex-col group relative"
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleBookmark(post.id);
-          toast.success(saved 
-            ? 'Removed from saved' 
-            : '🔖 Saved!');
-        }}
-        className={cn(
-          "absolute top-3 right-3 p-2 rounded-xl z-20",
-          "backdrop-blur-sm transition-all active:scale-90",
-          saved
-            ? "bg-primary text-white shadow-lg"
-            : "bg-white/90 text-gray-400 hover:text-primary"
-        )}
-      >
-        {saved 
-          ? <BookmarkCheck className="w-4 h-4" />
-          : <Bookmark className="w-4 h-4" />
-        }
-      </button>
-
-      {isExpired && (
-        <div className="absolute inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-          <div className="bg-red-600 text-white px-6 py-2 rounded-full font-black uppercase tracking-widest shadow-2xl rotate-[-5deg]">
-            Expired
-          </div>
-        </div>
-      )}
-
-      <Link to={`/post/${post.slug}`} className="flex flex-col h-full">
-        {post.thumbnail ? (
-          <div className="w-full h-44 overflow-hidden rounded-t-2xl flex-shrink-0 relative">
-            <img
-              src={post.thumbnail}
-              alt={post.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                const t = e.target as HTMLImageElement;
-                t.style.display = 'none';
-                // Show snippet instead when image fails
-                const parent = t.parentElement;
-                if (parent) parent.style.display = 'none';
-              }}
+          {post.location && (
+            <CheckItem 
+              text={post.location} 
+              featured={featured} 
             />
-            
-            {/* Category Badge */}
-            <div className="absolute top-3 left-3">
-              <span className="bg-accent text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
-                {post.category.replace('-', ' ')}
-              </span>
-            </div>
-
-            {/* Featured Badge */}
-            {post.isFeatured && (
-              <div className="absolute top-3 right-3">
-                <span className="bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
-                  Featured
-                </span>
-              </div>
-            )}
-
-            {/* Expiring Soon Badge */}
-            {isExpiringSoon && (
-              <div className="absolute bottom-3 left-3">
-                <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Expiring Soon
-                </span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-4 pb-0">
-            <div className="flex items-center justify-between text-gray-400 text-[10px] mb-3">
-              <div className="flex gap-2">
-                <span className="bg-accent/10 text-primary dark:text-accent text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                  {post.category.replace('-', ' ')}
-                </span>
-                {post.isFeatured && (
-                  <span className="bg-primary/10 text-primary dark:text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                    Featured
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="p-4 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-gray-400 text-[10px] mb-1">
-            <span className="flex items-center">
-              <Calendar className="h-3 w-3 mr-1" />
-              {post.createdAt?.toDate ? format(post.createdAt.toDate(), 'MMM dd, yyyy') : 'Recently'}
-            </span>
-            {isAdmin && (
-              <span className="flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                {post.views || 0} views
-              </span>
-            )}
-          </div>
-
-          <h3 className="font-black text-gray-900 dark:text-white text-sm leading-snug line-clamp-2">
-            {post.title}
-          </h3>
-
-          {/* Only show snippet when NO thumbnail */}
-          {!post.thumbnail && (
-            <p className="text-gray-500 dark:text-gray-400 text-xs line-clamp-2 leading-relaxed">
-              {getSnippet(post.description)}
-              {post.description?.length > 120 ? '...' : ''}
-            </p>
           )}
+
+          {deadlineText && (
+            <CheckItem 
+              text={deadlineText} 
+              featured={featured} 
+            />
+          )}
+
+          {snippet && (
+            <CheckItem 
+              text={snippet + '...'} 
+              featured={featured}
+              truncate 
+            />
+          )}
+
+          <CheckItem
+            text={`${post.views || 0} people viewed`}
+            featured={featured}
+          />
         </div>
 
-        <div className="mt-auto pt-4 space-y-3">
-          {/* Deadline */}
-          <div className="flex items-center text-xs">
-            {deadlineDate ? (
-              <span className={cn(
-                "font-bold flex items-center",
-                isExpired ? "text-red-500" : isExpiringSoon ? "text-red-600" : "text-orange-600"
-              )}>
-                <Clock className="h-3 w-3 mr-1" />
-                {isExpired ? 'Expired' : `Expires in ${formatDistanceToNow(deadlineDate)}`}
-              </span>
-            ) : (
-              <span className="text-gray-400 italic">No Deadline</span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800">
-            <span className="text-primary dark:text-accent font-bold text-xs flex items-center group-hover:translate-x-1 transition-transform">
-              View Details <ArrowRight className="ml-1 h-3 w-3" />
-            </span>
-            {isAdmin && !post.thumbnail && (
-              <span className="text-[10px] text-gray-400 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                {post.views || 0}
-              </span>
-            )}
-          </div>
-        </div>
-      </Link>
-    </motion.div>
+        {/* Apply button */}
+        <button className={cn(
+          "w-full py-2.5 md:py-3 rounded-xl",
+          "font-black text-xs md:text-sm",
+          "transition-all mt-1",
+          "hover:scale-105 active:scale-95",
+          featured
+            ? "bg-white text-primary hover:bg-blue-50 shadow-sm"
+            : "bg-primary text-white hover:bg-blue-900 shadow-sm"
+        )}>
+          {getApplyLabel(post.category)}
+        </button>
+      </div>
+    </Link>
   );
-});
+};
 
+// Reusable checkmark item
+const CheckItem = ({ 
+  text, 
+  featured, 
+  truncate 
+}: { 
+  text: string; 
+  featured: boolean;
+  truncate?: boolean;
+}) => (
+  <div className="flex items-start gap-1.5">
+    <div className={cn(
+      "w-3.5 h-3.5 md:w-4 md:h-4 rounded-full",
+      "flex items-center justify-center",
+      "flex-shrink-0 mt-0.5 text-[8px] font-black",
+      featured
+        ? "bg-white/20 text-white"
+        : "bg-primary/10 text-primary"
+    )}>
+      ✓
+    </div>
+    <span className={cn(
+      "text-[10px] md:text-xs font-medium leading-tight",
+      truncate ? "line-clamp-2" : "line-clamp-1",
+      featured ? "text-blue-100" : "text-gray-500"
+    )}>
+      {text}
+    </span>
+  </div>
+);
 
-
-
-
-
-
+export default PostCard;

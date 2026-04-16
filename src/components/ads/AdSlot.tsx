@@ -10,18 +10,31 @@ interface AdSlotProps {
   className?: string;
 }
 
+// ✅ helper to prevent trim crashes
+const safeTrim = (val?: string) => val?.trim() || '';
+
 export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
   const [config, setConfig] = useState<MonetizationConfig | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const adRef = useRef<HTMLDivElement>(null);
 
+  // ✅ Fetch config safely
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const docSnap = await getDoc(doc(db, 'settings', 'monetization'));
         if (docSnap.exists()) {
-          setConfig(docSnap.data() as MonetizationConfig);
+          const data = docSnap.data();
+
+          // ✅ normalize ALL adCode fields
+          setConfig({
+            ...data,
+            articleAdCode: data.articleAdCode ?? '',
+            sidebarAdCode: data.sidebarAdCode ?? '',
+            homepageAdCode: data.homepageAdCode ?? '',
+            heroAdCode: data.heroAdCode ?? '',
+          } as MonetizationConfig);
         }
       } catch (error) {
         console.error('Error fetching monetization config:', error);
@@ -30,23 +43,62 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
 
     fetchConfig();
 
-    // Check if user is admin
-    const checkAdmin = () => {
-      const user = auth.currentUser;
-      if (user) {
-        setIsAdmin(true); 
-      }
-    };
-    checkAdmin();
+    const isAdminSession = localStorage.getItem('cb_admin_session');
+    if (isAdminSession || auth.currentUser) {
+      setIsAdmin(true);
+    }
   }, []);
 
+  // ✅ Centralized zone logic (no duplication anymore)
+  const getZoneSettings = () => {
+    if (!config) return { enabled: false, network: 'Off', code: '' };
+
+    let enabled = false;
+    let network = 'Off';
+    let code = '';
+
+    if (zone === 'post-detail-top' || zone === 'post-detail-bottom') {
+      enabled = config.articleAdsEnabled;
+      network = config.articleAdNetwork;
+      code = config.articleAdCode || '';
+
+      if (zone === 'post-detail-top' && !config.aboveArticleAdEnabled) enabled = false;
+      if (zone === 'post-detail-bottom' && !config.belowArticleAdEnabled) enabled = false;
+    } else if (zone === 'sidebar') {
+      enabled = config.sidebarAdEnabled;
+      network = config.articleAdNetwork;
+      code = config.sidebarAdCode || '';
+    } else if (zone.startsWith('homepage')) {
+      enabled = config.homepageAdsEnabled;
+      network = config.homepageAdNetwork;
+      code = config.homepageAdCode || '';
+
+      if (zone === 'homepage-hero-bottom') {
+        enabled = config.heroAdEnabled;
+        code = config.heroAdCode || '';
+      }
+    } else if (zone === 'between-posts') {
+      enabled = config.blogAdsEnabled;
+      network = config.articleAdNetwork;
+      code = config.articleAdCode || '';
+    } else {
+      const legacy = config.zones?.[zone];
+      enabled = legacy?.enabled || false;
+      network = legacy?.network || 'Custom Code';
+      code = legacy?.adCode || '';
+    }
+
+    return { enabled, network, code };
+  };
+
+  // ✅ Lazy load observer
   useEffect(() => {
-    if (!config || !adRef.current || !config.zones) return;
+    if (!config || !adRef.current || !config.masterSwitch) return;
 
-    const zoneConfig = config.zones[zone];
-    if (!zoneConfig?.isEnabled) return;
+    const { enabled, network, code } = getZoneSettings();
 
-    // Intersection Observer for lazy loading
+    if (!enabled || network === 'Off' || !safeTrim(code)) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
@@ -58,110 +110,101 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
     );
 
     observer.observe(adRef.current);
-
     return () => observer.disconnect();
   }, [config, zone]);
 
+  // ✅ Inject ads safely
   useEffect(() => {
-    if (isVisible && config && adRef.current && !isAdmin && config.zones) {
-      const zoneConfig = config.zones[zone];
-      if (!zoneConfig) return;
-      
-      // Inject the ad code
-      const container = adRef.current;
-      container.innerHTML = zoneConfig.adCode;
+    if (!isVisible || !config || !adRef.current || isAdmin) return;
 
-      // Execute any scripts in the ad code
-      const scripts = container.getElementsByTagName('script');
-      for (let i = 0; i < scripts.length; i++) {
-        const s = document.createElement('script');
-        const original = scripts[i];
-        for (let j = 0; j < original.attributes.length; j++) {
-          const attr = original.attributes[j];
-          s.setAttribute(attr.name, attr.value);
-        }
-        s.textContent = original.textContent;
-        document.body.appendChild(s);
+    const { network, code } = getZoneSettings();
+    if (!safeTrim(code) || network === 'Off') return;
+
+    const container = adRef.current;
+    container.innerHTML = code;
+
+    // execute scripts
+    const scripts = container.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const s = document.createElement('script');
+      const original = scripts[i];
+
+      for (let j = 0; j < original.attributes.length; j++) {
+        const attr = original.attributes[j];
+        s.setAttribute(attr.name, attr.value);
       }
 
-      // Handle AdSense push
-      if (zoneConfig.adCode.includes('adsbygoogle')) {
-        const pushAd = () => {
-          try {
-            (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-            (window as any).adsbygoogle.push({});
-          } catch (e) {
-            console.error('AdSense error in AdSlot:', e);
-          }
-        };
+      s.textContent = original.textContent;
+      document.body.appendChild(s);
+    }
 
-        const checkAndPush = () => {
-          // AdSense typically requires at least 120px for responsive ads
-          if (container.offsetWidth >= 120) {
-            pushAd();
-            return true;
-          }
-          return false;
-        };
-
-        if (!checkAndPush()) {
-          const resizeObserver = new ResizeObserver(() => {
-            if (checkAndPush()) {
-              resizeObserver.disconnect();
-            }
-          });
-          resizeObserver.observe(container);
-          
-          // Safety timeout
-          setTimeout(() => resizeObserver.disconnect(), 5000);
+    // AdSense handling
+    if (code.includes('adsbygoogle') || network === 'AdSense') {
+      const pushAd = () => {
+        try {
+          (window as any).adsbygoogle = (window as any).adsbygoogle || [];
+          (window as any).adsbygoogle.push({});
+        } catch (e) {
+          console.error('AdSense error:', e);
         }
+      };
+
+      const check = () => {
+        if (container.offsetWidth >= 120) {
+          pushAd();
+          return true;
+        }
+        return false;
+      };
+
+      if (!check()) {
+        const ro = new ResizeObserver(() => {
+          if (check()) ro.disconnect();
+        });
+
+        ro.observe(container);
+        setTimeout(() => ro.disconnect(), 5000);
       }
     }
   }, [isVisible, config, isAdmin, zone]);
 
-  if (!config) return null;
+  if (!config || !config.masterSwitch) return null;
 
-  const zoneConfig = config.zones ? config.zones[zone] : null;
-  const shouldHideOnMobile = config.hideAdsOnMobile && window.innerWidth < 768;
-  const isDesktopOnly = zone === 'sidebar';
+  const { enabled, network } = getZoneSettings();
 
-  if (!zoneConfig?.isEnabled) return null;
-  if (shouldHideOnMobile) return null;
-  if (isDesktopOnly && window.innerWidth < 1024) return null;
+  const isMobile =
+    typeof window !== 'undefined' && window.innerWidth < 768;
+  const isDesktop =
+    typeof window !== 'undefined' && window.innerWidth >= 1024;
 
-  // Admin Placeholder
+  if (!enabled || network === 'Off') return null;
+  if (config.hideAdsOnMobile && isMobile) return null;
+  if (zone === 'sidebar' && !isDesktop) return null;
+
+  // ✅ Admin placeholder
   if (isAdmin && config.hideAdsForAdmin) {
     return (
-      <motion.div 
-        layout
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className={`my-8 flex flex-col items-center ${className}`}
-      >
-        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Advertisement Placeholder</span>
-        <div className="w-full max-w-4xl min-h-[100px] border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-900/50">
-          <Layout className="h-6 w-6 text-gray-300 mb-2" />
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-tight">Ad Zone: {String(zone).replace(/-/g, ' ')}</p>
-          <p className="text-[10px] text-gray-400 mt-1 italic">Ads are hidden for admins</p>
+      <motion.div className={`my-8 flex flex-col items-center ${className}`}>
+        <span className="text-[10px] text-gray-400 mb-2">
+          Advertisement Placeholder
+        </span>
+        <div className="w-full max-w-4xl min-h-[100px] border-2 border-dashed rounded-2xl flex items-center justify-center p-8">
+          <Layout className="h-6 w-6 text-gray-300 mr-2" />
+          <p>Ad Zone: {zone.replace(/-/g, ' ')}</p>
         </div>
       </motion.div>
     );
   }
 
   return (
-    <motion.div 
-      ref={adRef} 
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <motion.div
+      ref={adRef}
       className={`my-8 flex flex-col items-center overflow-hidden ${className}`}
     >
-      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
-      <div className="w-full flex justify-center min-h-[50px]">
-        {/* Ad content will be injected here */}
-      </div>
+      <span className="text-[10px] text-gray-400 mb-2">
+        Advertisement
+      </span>
+      <div className="w-full flex justify-center min-h-[50px]" />
     </motion.div>
   );
 };

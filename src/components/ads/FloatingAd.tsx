@@ -14,20 +14,25 @@ export const FloatingAd = () => {
     const fetchConfig = async () => {
       try {
         const docSnap = await getDoc(doc(db, 'settings', 'monetization'));
-        if (docSnap.exists()) {
-          const data = docSnap.data() as MonetizationConfig;
-          setConfig(data);
-          
-          // Only show if enabled, on mobile, and not admin (or admin ads enabled)
-          const isMobile = window.innerWidth < 768;
-          const isAdmin = !!auth.currentUser;
-          const shouldShow = data.zones['floating-sticky']?.isEnabled && 
-                            isMobile && 
-                            (!isAdmin || !data.hideAdsForAdmin);
-          
-          if (shouldShow) {
-            setIsVisible(true);
-          }
+
+        if (!docSnap.exists()) return;
+
+        const data = docSnap.data() as MonetizationConfig;
+        setConfig(data);
+
+        const isMobile = window.innerWidth < 768;
+        const isAdmin = !!auth.currentUser;
+
+        // ✅ SAFE access
+        const zone = data.zones?.['floating-sticky'];
+
+        const shouldShow =
+          zone?.enabled &&
+          isMobile &&
+          (!isAdmin || !data.hideAdsForAdmin);
+
+        if (shouldShow) {
+          setIsVisible(true);
         }
       } catch (error) {
         console.error('Error fetching monetization config:', error);
@@ -40,14 +45,17 @@ export const FloatingAd = () => {
   const handleDismiss = () => {
     setIsVisible(false);
     setIsDismissed(true);
-    // Reappear after 5 minutes
+
     setTimeout(() => {
       setIsDismissed(false);
       setIsVisible(true);
     }, 5 * 60 * 1000);
   };
 
-  if (!isVisible || isDismissed || !config) return null;
+  // ✅ SAFE access again
+  const zone = config?.zones?.['floating-sticky'];
+
+  if (!isVisible || isDismissed || !config || !zone) return null;
 
   return (
     <AnimatePresence>
@@ -63,10 +71,14 @@ export const FloatingAd = () => {
         >
           <X className="h-4 w-4" />
         </button>
-        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+
+        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">
+          Advertisement
+        </span>
+
         <div 
           className="w-full max-w-md min-h-[50px] flex justify-center overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: config.zones['floating-sticky'].adCode }}
+          dangerouslySetInnerHTML={{ __html: zone.adCode }}
         />
       </motion.div>
     </AnimatePresence>

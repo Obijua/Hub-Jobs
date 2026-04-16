@@ -1,4 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { MonetizationConfig } from '../types';
 
 interface AdUnitProps {
   slot: string;
@@ -13,16 +16,30 @@ const AdUnit = ({
   className = '',
   responsive = true 
 }: AdUnitProps) => {
+  const [adConfig, setAdConfig] = useState<MonetizationConfig | null>(null);
   const adRef = useRef<HTMLModElement>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (initialized.current) return;
+    const fetchAdConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'monetization'));
+        if (snap.exists()) {
+          setAdConfig(snap.data() as MonetizationConfig);
+        }
+      } catch (e) {
+        console.error('Ad config error:', e);
+      }
+    };
+    fetchAdConfig();
+  }, []);
+
+  useEffect(() => {
+    if (!adConfig || initialized.current || !adConfig.masterSwitch) return;
 
     const pushAd = () => {
       if (initialized.current) return;
       
-      // Final check for width before pushing
       if (!adRef.current || adRef.current.offsetWidth === 0) {
         return;
       }
@@ -36,7 +53,6 @@ const AdUnit = ({
     };
 
     const checkWidth = () => {
-      // AdSense typically requires at least 120px for responsive ads
       if (adRef.current && adRef.current.offsetWidth >= 120) {
         pushAd();
         return true;
@@ -44,10 +60,8 @@ const AdUnit = ({
       return false;
     };
 
-    // Try immediately
     if (checkWidth()) return;
 
-    // Fallback: Use ResizeObserver to wait for width
     const observer = new ResizeObserver(() => {
       if (checkWidth()) {
         observer.disconnect();
@@ -58,7 +72,6 @@ const AdUnit = ({
       observer.observe(adRef.current);
     }
 
-    // Safety timeout - only push if width is actually > 0
     const timeout = setTimeout(() => {
       if (!initialized.current) {
         checkWidth();
@@ -70,15 +83,16 @@ const AdUnit = ({
       observer.disconnect();
       clearTimeout(timeout);
     };
-  }, []);
+  }, [adConfig]);
 
-  const clientId = import.meta.env.VITE_ADSENSE_CLIENT_ID;
+  if (!adConfig || !adConfig.masterSwitch) return null;
+
+  const clientId = adConfig.adsensePublisherId;
   if (!clientId || !slot) return null;
 
   return (
     <div className={`ad-container my-4 ${className}`}>
-      <p className="text-[10px] text-gray-400 text-center 
-        mb-1 uppercase tracking-widest">
+      <p className="text-[10px] text-gray-400 text-center mb-1 uppercase tracking-widest">
         Advertisement
       </p>
       <ins

@@ -1,37 +1,38 @@
+
 import { useState, useEffect } from 'react';
 import { db, storage, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  orderBy, 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
   Timestamp,
   addDoc,
   serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
-import { 
-  Settings, 
-  FolderTree, 
-  Share2, 
-  Globe, 
-  Megaphone, 
-  Mail, 
-  User, 
-  Save, 
-  Plus, 
+import {
+  Settings,
+  FolderTree,
+  Share2,
+  Globe,
+  Megaphone,
+  Mail,
+  User,
+  Save,
+  Plus,
   Star,
-  Trash2, 
-  Edit2, 
-  Check, 
-  X, 
-  ExternalLink, 
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  ExternalLink,
   Download,
   FileText,
   Eye,
@@ -150,32 +151,45 @@ export const AdminSettings = () => {
     }
   };
 
-  const handleSave = async (tab: Tab, data: any) => {
+
+
+
+  const handleSave = async <T extends Record<string, any>>(key: string, data: T) => {
     setSaving(true);
+
     try {
-      if (tab === 'social') {
+      if (key === 'social') {
         await setDoc(doc(db, 'settings', 'socialLinks'), data);
-      } else if (tab === 'site') {
+      } else if (key === 'site') {
         await setDoc(doc(db, 'settings', 'siteConfig'), data);
-      } else if (tab === 'banner') {
+      } else if (key === 'banner') {
         await setDoc(doc(db, 'settings', 'banner'), data);
-      } else if (tab === 'monetization') {
+      } else if (key === 'monetization') {
         await setDoc(doc(db, 'settings', 'monetization'), data);
-      } else if (tab === 'documents') {
+      } else if (key === 'documents') {
         await setDoc(doc(db, 'settings', 'documents'), data);
-      } else if (tab === 'account') {
+      } else if (key === 'account') {
         if (auth.currentUser) {
           await updateDoc(doc(db, 'users', auth.currentUser.uid), data);
         }
       }
+
       setHasUnsavedChanges(false);
       toast.success('Settings saved successfully!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `settings/${tab}`);
+      handleFirestoreError(error, OperationType.WRITE, `settings/${key}`);
     } finally {
       setSaving(false);
     }
   };
+
+
+
+
+
+
+
+
 
   const exportSubscribers = () => {
     const csv = [
@@ -236,11 +250,10 @@ export const AdminSettings = () => {
                 localStorage.setItem('admin_settings_tab', tab.id);
                 setHasUnsavedChanges(false);
               }}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all ${
-                activeTab === tab.id
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
+              className={`flex items-center space-x-2 px-6 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === tab.id
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
             >
               <tab.icon className="h-4 w-4" />
               <span>{tab.label}</span>
@@ -266,70 +279,78 @@ export const AdminSettings = () => {
               ) : (
                 <>
                   {activeTab === 'categories' && (
-                    <CategoryManagement 
-                      categories={categories} 
-                      onRefresh={fetchData} 
+                    <CategoryManagement
+                      categories={categories}
+                      onRefresh={fetchData}
                     />
                   )}
+
                   {activeTab === 'social' && (
-                    <SocialSettings 
-                      initialData={socialLinks} 
-                      onSave={(data) => handleSave('social', data)}
+                    <SocialSettings
+                      initialData={socialLinks}
+                      onSave={(data: NonNullable<typeof socialLinks>) => handleSave('social', data)}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
                   )}
+
                   {activeTab === 'site' && (
-                    <SiteSettings 
-                      initialData={siteConfig} 
-                      onSave={(data) => handleSave('site', data)}
+                    <SiteSettings
+                      initialData={siteConfig}
+                      onSave={(data: NonNullable<typeof siteConfig>) => handleSave('site', data)}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
                   )}
+
                   {activeTab === 'banner' && (
-                    <BannerSettings 
-                      initialData={banner} 
-                      onSave={(data) => handleSave('banner', data)}
+                    <BannerSettings
+                      initialData={banner}
+                      onSave={(data: NonNullable<typeof banner>) => handleSave('banner', data)}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
                   )}
+
                   {activeTab === 'monetization' && (
-                    <MonetizationSettings 
-                      initialData={monetization} 
-                      onSave={(data) => handleSave('monetization', data)}
+                    <MonetizationSettings
+                      initialData={monetization}
+                      onSave={(data: MonetizationConfig) => handleSave('monetization', data)}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
                   )}
+
                   {activeTab === 'documents' && (
-                    <DocumentSettings 
-                      initialData={documentSettings} 
+                    <DocumentSettings
+                      initialData={documentSettings}
                       promoCodes={promoCodes}
-                      onSave={(data) => handleSave('documents', data)}
+                      onSave={(data: NonNullable<typeof documentSettings>) => handleSave('documents', data)}
                       onRefreshPromoCodes={fetchData}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
                   )}
+
                   {activeTab === 'newsletter' && (
-                    <NewsletterSettings 
-                      subscribers={subscribers} 
+                    <NewsletterSettings
+                      subscribers={subscribers}
                       onDelete={deleteSubscriber}
                       onExport={exportSubscribers}
                     />
                   )}
+
                   {activeTab === 'push' && (
-                    <PushSettings 
+                    <PushSettings
                       subscribers={pushSubscribers}
                       onRefresh={fetchData}
                     />
                   )}
+
                   {activeTab === 'account' && (
-                    <AccountSettings 
-                      profile={adminProfile} 
-                      onSave={(data) => handleSave('account', data)}
+                    <AccountSettings
+                      profile={adminProfile}
+                      onSave={(data: NonNullable<typeof adminProfile>) => handleSave('account', data)}
                       saving={saving}
                       onChange={() => setHasUnsavedChanges(true)}
                     />
@@ -348,22 +369,38 @@ export const AdminSettings = () => {
 
 const MonetizationSettings = ({ initialData, onSave, saving, onChange }: any) => {
   const [data, setData] = useState<MonetizationConfig>(initialData || {
+    masterSwitch: true,
+    homepageAdsEnabled: true,
+    homepageAdNetwork: 'AdSense',
+    homepageAdCode: '',
+    homepageAdFrequency: 3,
+    homepageMaxAds: 5,
+    heroAdEnabled: false,
+    heroAdCode: '',
+    articleAdsEnabled: true,
+    articleAdNetwork: 'AdSense',
+    articleAdCode: '',
+    articleAdFrequency: 2,
+    articleMaxAds: 6,
+    aboveArticleAdEnabled: true,
+    belowArticleAdEnabled: true,
+    sidebarAdEnabled: true,
+    sidebarAdCode: '',
+    blogAdsEnabled: true,
+    adsTargetGlobalScript: '',
     adsenseEnabled: false,
     adsensePublisherId: '',
     adsenseInArticleSlot: '',
     adsenseAutoAdsEnabled: false,
-    
     adsterraEnabled: false,
     adsterraInArticleCode: '',
     adsterraSocialBarCode: '',
     adsterraPopunderCode: '',
-    
     monetagEnabled: false,
     monetagSiteId: '',
     monetagInPagePushCode: '',
     monetagInArticleCode: '',
     monetagPushNotificationsEnabled: false,
-    
     adFrequency: 2,
     maxAdsPerArticle: 6,
     hideAdsOnMobile: false,
@@ -374,6 +411,8 @@ const MonetizationSettings = ({ initialData, onSave, saving, onChange }: any) =>
     setData({ ...data, [field as keyof MonetizationConfig]: value });
     onChange();
   };
+
+  const networks = ['AdSense', 'Adsterra', 'AdsTarget', 'Monetag', 'Custom Code', 'Off'];
 
   return (
     <div className="space-y-12">
@@ -387,290 +426,311 @@ const MonetizationSettings = ({ initialData, onSave, saving, onChange }: any) =>
             <p className="text-sm text-gray-500">Manage your ad networks and placements</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => onSave(data)}
           disabled={saving}
           className="flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          <span>Save Monetization</span>
+          <span>Save Ad Settings</span>
         </button>
       </div>
 
-      {/* ADSTERRA SECTION */}
-      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center font-black text-orange-600">
-              A
+      {/* Global Switch */}
+      <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="p-3 bg-primary/10 rounded-2xl">
+            <Megaphone className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-black text-gray-900 dark:text-white">Enable Ads on Site</h3>
+            <p className="text-xs text-gray-500">Master switch to turn all ads on or off</p>
+          </div>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.masterSwitch}
+            onChange={(e) => handleChange('masterSwitch', e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+        </label>
+      </div>
+
+      {/* Homepage Ads */}
+      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center space-x-2">
+            <Layout className="h-5 w-5 text-primary" />
+            <span>Homepage Ads</span>
+          </h3>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={data.homepageAdsEnabled}
+              onChange={(e) => handleChange('homepageAdsEnabled', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Ad Network</label>
+            <select
+              value={data.homepageAdNetwork}
+              onChange={(e) => handleChange('homepageAdNetwork', e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+            >
+              {networks.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">In-Feed Frequency</label>
+              <input
+                type="number"
+                value={data.homepageAdFrequency}
+                onChange={(e) => handleChange('homepageAdFrequency', parseInt(e.target.value))}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+              />
             </div>
             <div>
-              <h4 className="font-black text-gray-900 dark:text-white text-lg">Adsterra</h4>
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Instant Approval Network</p>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Max In-Feed Ads</label>
+              <input
+                type="number"
+                value={data.homepageMaxAds}
+                onChange={(e) => handleChange('homepageMaxAds', parseInt(e.target.value))}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+              />
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Enable Adsterra</span>
+        </div>
+
+        <div>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Homepage Ad Code</label>
+          <textarea
+            placeholder="Paste ad code here..."
+            value={data.homepageAdCode}
+            onChange={(e) => handleChange('homepageAdCode', e.target.value)}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
+          />
+        </div>
+
+        <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">Hero Section Ad</p>
+              <p className="text-[10px] text-gray-500">Show ad at the top of homepage</p>
+            </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={data.adsterraEnabled}
-                onChange={(e) => handleChange('adsterraEnabled', e.target.checked)}
+              <input
+                type="checkbox"
+                checked={data.heroAdEnabled}
+                onChange={(e) => handleChange('heroAdEnabled', e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
             </label>
           </div>
+          <textarea
+            placeholder="Hero ad code..."
+            value={data.heroAdCode}
+            onChange={(e) => handleChange('heroAdCode', e.target.value)}
+            className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-20 font-mono text-xs resize-none"
+          />
+        </div>
+      </div>
+
+      {/* Post Detail Ads */}
+      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center space-x-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <span>Post Detail Page Ads</span>
+          </h3>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={data.articleAdsEnabled}
+              onChange={(e) => handleChange('articleAdsEnabled', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+          </label>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Adsterra In-Article Ad Code</label>
-            <textarea 
-              placeholder="Paste your Adsterra Banner/Native code here..."
-              value={data.adsterraInArticleCode}
-              onChange={(e) => handleChange('adsterraInArticleCode', e.target.value)}
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Ad Network</label>
+            <select
+              value={data.articleAdNetwork}
+              onChange={(e) => handleChange('articleAdNetwork', e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+            >
+              {networks.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">In-Article Frequency</label>
+              <input
+                type="number"
+                value={data.articleAdFrequency}
+                onChange={(e) => handleChange('articleAdFrequency', parseInt(e.target.value))}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Max Ads</label>
+              <input
+                type="number"
+                value={data.articleMaxAds}
+                onChange={(e) => handleChange('articleMaxAds', parseInt(e.target.value))}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Article Ad Code</label>
+          <textarea
+            placeholder="Paste ad code here..."
+            value={data.articleAdCode}
+            onChange={(e) => handleChange('articleAdCode', e.target.value)}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <span className="text-xs font-bold">Above Content</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.aboveArticleAdEnabled}
+                onChange={(e) => handleChange('aboveArticleAdEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <span className="text-xs font-bold">Below Content</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.belowArticleAdEnabled}
+                onChange={(e) => handleChange('belowArticleAdEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <span className="text-xs font-bold">Sidebar Ad</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.sidebarAdEnabled}
+                onChange={(e) => handleChange('sidebarAdEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
+        </div>
+
+        {data.sidebarAdEnabled && (
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Sidebar Ad Code</label>
+            <textarea
+              placeholder="Sidebar ad code..."
+              value={data.sidebarAdCode}
+              onChange={(e) => handleChange('sidebarAdCode', e.target.value)}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
             />
-            <p className="mt-2 text-[10px] text-gray-500">Get this from Adsterra dashboard → My Sites → Ad Units → Native Banner</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Adsterra Social Bar Code</label>
-              <textarea 
-                placeholder="Social Bar script (injected in <head> globally)..."
-                value={data.adsterraSocialBarCode}
-                onChange={(e) => handleChange('adsterraSocialBarCode', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Adsterra Popunder Code</label>
-              <textarea 
-                placeholder="Popunder script (injected in <head> globally)..."
-                value={data.adsterraPopunderCode}
-                onChange={(e) => handleChange('adsterraPopunderCode', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
-              />
-            </div>
+        )}
+      </div>
+
+      {/* Blog/Category Ads */}
+      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center space-x-2">
+            <FolderTree className="h-5 w-5 text-primary" />
+            <span>Blog & Category Page Ads</span>
+          </h3>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={data.blogAdsEnabled}
+              onChange={(e) => handleChange('blogAdsEnabled', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+          </label>
+        </div>
+        <p className="text-sm text-gray-500">Enable or disable ads on blog listing and category pages.</p>
+      </div>
+
+      {/* AdsTarget Section */}
+      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center font-black text-indigo-600">
+            T
           </div>
+          <div>
+            <h4 className="font-black text-gray-900 dark:text-white text-lg">AdsTarget</h4>
+            <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Global Ad Network</p>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">AdsTarget Global Script</label>
+          <textarea
+            placeholder="Paste AdsTarget global script here..."
+            value={data.adsTargetGlobalScript}
+            onChange={(e) => handleChange('adsTargetGlobalScript', e.target.value)}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
+          />
+          <p className="mt-2 text-[10px] text-gray-500">This script will be added to the head of every page.</p>
         </div>
       </div>
 
-      {/* MONETAG SECTION */}
-      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center font-black text-blue-600">
-              M
-            </div>
-            <div>
-              <h4 className="font-black text-gray-900 dark:text-white text-lg">Monetag</h4>
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Multi-Format Ad Network</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Enable Monetag</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={data.monetagEnabled}
-                onChange={(e) => handleChange('monetagEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Monetag Site ID</label>
-              <input 
-                type="text"
-                placeholder="Find in Monetag dashboard → Sites"
-                value={data.monetagSiteId}
-                onChange={(e) => handleChange('monetagSiteId', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-mono text-sm"
-              />
-            </div>
-            <div className="flex items-end pb-3">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={data.monetagPushNotificationsEnabled}
-                  onChange={(e) => handleChange('monetagPushNotificationsEnabled', e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Monetag Push Notifications (auto opt-in)</span>
-              </label>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Monetag In-Page Push Code</label>
-              <textarea 
-                placeholder="In-Page Push script..."
-                value={data.monetagInPagePushCode}
-                onChange={(e) => handleChange('monetagInPagePushCode', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Monetag In-Article Code</label>
-              <textarea 
-                placeholder="Paste Monetag banner/interstitial code..."
-                value={data.monetagInArticleCode}
-                onChange={(e) => handleChange('monetagInArticleCode', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 font-mono text-xs resize-none"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ADSENSE SECTION */}
-      <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center font-black text-green-600">
-              G
-            </div>
-            <div>
-              <h4 className="font-black text-gray-900 dark:text-white text-lg">Google AdSense</h4>
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Premium Ad Network</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Enable AdSense</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={data.adsenseEnabled}
-                onChange={(e) => handleChange('adsenseEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Publisher ID</label>
-              <input 
-                type="text"
-                placeholder="ca-pub-XXXXXXXXXXXXXXXX"
-                value={data.adsensePublisherId}
-                onChange={(e) => handleChange('adsensePublisherId', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-mono text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">In-Article Ad Slot ID</label>
-              <input 
-                type="text"
-                placeholder="Enter Slot ID..."
-                value={data.adsenseInArticleSlot}
-                onChange={(e) => handleChange('adsenseInArticleSlot', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all font-mono text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
-            <div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">Enable AdSense Auto Ads</p>
-              <p className="text-[10px] text-gray-500">AdSense places ads automatically across your site</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={data.adsenseAutoAdsEnabled}
-                onChange={(e) => handleChange('adsenseAutoAdsEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            </label>
-          </div>
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/20 flex items-start space-x-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800 dark:text-amber-400 leading-relaxed">
-              ⏳ AdSense requires site approval before showing ads. Set up Adsterra and Monetag first.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* AD FREQUENCY SETTINGS */}
+      {/* Visibility Settings */}
       <div className="p-8 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800">
         <h3 className="text-lg font-black text-gray-900 dark:text-white mb-8 flex items-center space-x-2">
           <TrendingUp className="h-6 w-6 text-primary" />
-          <span>Ad Frequency & Visibility</span>
+          <span>General Visibility Settings</span>
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">In-Article Ad Frequency</label>
-              <div className="flex items-center space-x-4">
-                <input 
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={data.adFrequency || ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    handleChange('adFrequency', isNaN(val) ? 0 : val);
-                  }}
-                  className="w-24 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-center"
-                />
-                <span className="text-sm text-gray-500">Show ad every N paragraphs</span>
-              </div>
-              <p className="mt-2 text-[10px] text-gray-400">Lower = more ads. Recommended: 2-3</p>
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Max ads per article</label>
-              <input 
-                type="number"
-                min="1"
-                max="10"
-                value={data.maxAdsPerArticle || ''}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  handleChange('maxAdsPerArticle', isNaN(val) ? 0 : val);
-                }}
-                className="w-24 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-center"
+          <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Hide ads on mobile</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.hideAdsOnMobile}
+                onChange={(e) => handleChange('hideAdsOnMobile', e.target.checked)}
+                className="sr-only peer"
               />
-            </div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
           </div>
-          
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Hide ads on mobile</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={data.hideAdsOnMobile}
-                  onChange={(e) => handleChange('hideAdsOnMobile', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-              </label>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 opacity-60">
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Hide ads for admin</span>
-              <label className="relative inline-flex items-center cursor-not-allowed">
-                <input 
-                  type="checkbox" 
-                  checked={true}
-                  disabled
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-primary rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[22px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-              </label>
-            </div>
+          <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Hide ads for admin</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.hideAdsForAdmin}
+                onChange={(e) => handleChange('hideAdsForAdmin', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
           </div>
         </div>
       </div>
@@ -724,7 +784,7 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Category Management</h2>
-        <button 
+        <button
           onClick={() => {
             setEditing(null);
             setFormData({ name: '', slug: '', icon: '💼', color: '#3b82f6', description: '', displayOrder: categories.length + 1, isActive: true });
@@ -764,9 +824,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                 <td className="py-4 text-sm text-gray-500">{cat.slug}</td>
                 <td className="py-4 text-sm font-mono">{cat.displayOrder}</td>
                 <td className="py-4">
-                  <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                    cat.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
-                  }`}>
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${cat.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                    }`}>
                     {cat.isActive ? 'Active' : 'Hidden'}
                   </span>
                 </td>
@@ -774,13 +833,13 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                   <div className="flex justify-end space-x-2">
                     {deletingId === cat.id ? (
                       <div className="flex items-center space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleDelete(cat.id)}
                           className="px-3 py-1 bg-red-500 text-white text-[10px] font-black uppercase rounded-lg hover:bg-red-600 transition-all"
                         >
                           Confirm
                         </button>
-                        <button 
+                        <button
                           onClick={() => setDeletingId(null)}
                           className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-black uppercase rounded-lg hover:bg-gray-200 transition-all"
                         >
@@ -789,7 +848,7 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                       </div>
                     ) : (
                       <>
-                        <button 
+                        <button
                           onClick={() => {
                             setEditing(cat);
                             setFormData(cat);
@@ -799,7 +858,7 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => setDeletingId(cat.id)}
                           className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         >
@@ -817,7 +876,7 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-8"
@@ -829,8 +888,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
@@ -839,8 +898,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                 </div>
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Slug</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
@@ -852,8 +911,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Icon (Emoji)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.icon}
                     onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all"
@@ -862,8 +921,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Color</label>
                   <div className="flex items-center space-x-2">
-                    <input 
-                      type="color" 
+                    <input
+                      type="color"
                       value={formData.color}
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                       className="w-12 h-12 p-1 bg-gray-50 dark:bg-gray-800 rounded-xl cursor-pointer"
@@ -875,7 +934,7 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
 
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Description</label>
-                <textarea 
+                <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 resize-none"
@@ -885,8 +944,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Display Order</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={formData.displayOrder || ''}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
@@ -897,8 +956,8 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
                 </div>
                 <div className="flex items-end pb-3">
                   <label className="flex items-center space-x-3 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={formData.isActive}
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                       className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
@@ -909,14 +968,14 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
               </div>
 
               <div className="flex space-x-3 pt-4">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="flex-1 px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl font-bold hover:bg-gray-200 transition-all"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="flex-1 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-blue-900 transition-all"
                 >
@@ -966,7 +1025,7 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Social & Community Links</h2>
-        <button 
+        <button
           onClick={() => onSave(data)}
           disabled={saving}
           className="flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -980,48 +1039,48 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
         {Object.entries(data)
           .filter(([key]) => key !== 'telegramBot')
           .map(([key, link]: [any, any]) => (
-          <div key={key} className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <Share2 className="h-4 w-4 text-primary" />
+            <div key={key} className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                    <Share2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <input
+                    type="text"
+                    value={link.label}
+                    onChange={(e) => updateLink(key, 'label', e.target.value)}
+                    className="bg-transparent font-bold text-gray-900 dark:text-white outline-none border-b border-transparent focus:border-primary"
+                  />
                 </div>
-                <input 
-                  type="text"
-                  value={link.label}
-                  onChange={(e) => updateLink(key, 'label', e.target.value)}
-                  className="bg-transparent font-bold text-gray-900 dark:text-white outline-none border-b border-transparent focus:border-primary"
-                />
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={link.isActive}
+                    onChange={(e) => updateLink(key, 'isActive', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={link.isActive}
-                  onChange={(e) => updateLink(key, 'isActive', e.target.checked)}
-                  className="sr-only peer"
+              <div className="flex space-x-2">
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={link.url}
+                  onChange={(e) => updateLink(key, 'url', e.target.value)}
+                  className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-              </label>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:text-primary transition-all"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                </a>
+              </div>
             </div>
-            <div className="flex space-x-2">
-              <input 
-                type="url"
-                placeholder="https://..."
-                value={link.url}
-                onChange={(e) => updateLink(key, 'url', e.target.value)}
-                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
-              />
-              <a 
-                href={link.url} 
-                target="_blank" 
-                rel="noreferrer"
-                className="p-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:text-primary transition-all"
-              >
-                <ExternalLink className="h-5 w-5" />
-              </a>
-            </div>
-          </div>
-        ))}
+          ))}
       </div>
 
       <div className="mt-12 pt-12 border-t border-gray-100 dark:border-gray-800">
@@ -1047,8 +1106,8 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={data.telegramBot?.isAutoPostEnabled}
                 onChange={(e) => updateBot('isAutoPostEnabled', e.target.checked)}
                 className="sr-only peer"
@@ -1060,7 +1119,7 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Bot Token</label>
-              <input 
+              <input
                 type="password"
                 placeholder="123456789:ABCDEF..."
                 value={data.telegramBot?.botToken}
@@ -1070,7 +1129,7 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
             </div>
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Channel ID</label>
-              <input 
+              <input
                 type="text"
                 placeholder="@mychannel or -100..."
                 value={data.telegramBot?.channelId}
@@ -1082,7 +1141,7 @@ const SocialSettings = ({ initialData, onSave, saving, onChange }: any) => {
 
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Message Template</label>
-            <textarea 
+            <textarea
               value={data.telegramBot?.messageTemplate}
               onChange={(e) => updateBot('messageTemplate', e.target.value)}
               placeholder="<b>{title}</b>\n\n{description}..."
@@ -1130,7 +1189,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">General Site Settings</h2>
-        <button 
+        <button
           onClick={() => onSave(data)}
           disabled={saving}
           className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -1146,7 +1205,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div className="space-y-6">
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Site Name</label>
-                <input 
+                <input
                   type="text"
                   value={data.siteName}
                   onChange={(e) => handleChange('siteName', e.target.value)}
@@ -1155,7 +1214,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Tagline</label>
-                <input 
+                <input
                   type="text"
                   value={data.tagline}
                   onChange={(e) => handleChange('tagline', e.target.value)}
@@ -1164,7 +1223,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Contact Email</label>
-                <input 
+                <input
                   type="email"
                   value={data.contactEmail}
                   onChange={(e) => handleChange('contactEmail', e.target.value)}
@@ -1173,7 +1232,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Copyright Text</label>
-                <input 
+                <input
                   type="text"
                   value={data.copyrightText}
                   onChange={(e) => handleChange('copyrightText', e.target.value)}
@@ -1188,8 +1247,8 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                     <span className="font-bold text-gray-900 dark:text-white">Show Featured on Home</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={data.showFeaturedOnHome}
                       onChange={(e) => handleChange('showFeaturedOnHome', e.target.checked)}
                       className="sr-only peer"
@@ -1208,8 +1267,8 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                     <span className="font-bold text-gray-900 dark:text-white">Hero Banner Settings</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={data.showHeroText}
                       onChange={(e) => handleChange('showHeroText', e.target.checked)}
                       className="sr-only peer"
@@ -1221,7 +1280,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Hero Headline</label>
-                    <input 
+                    <input
                       type="text"
                       placeholder="e.g. Your Hub for Jobs & Opportunities"
                       value={data.heroHeadline}
@@ -1231,7 +1290,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                   </div>
                   <div>
                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Hero Subtitle</label>
-                    <textarea 
+                    <textarea
                       placeholder="e.g. Hub & Jobs is Nigeria's #1 platform..."
                       value={data.heroSubtitle}
                       onChange={(e) => handleChange('heroSubtitle', e.target.value)}
@@ -1242,7 +1301,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                     <div>
                       <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Background Color</label>
                       <div className="flex items-center space-x-3">
-                        <input 
+                        <input
                           type="color"
                           value={data.heroBgColor || '#1E3A8A'}
                           onChange={(e) => handleChange('heroBgColor', e.target.value)}
@@ -1254,7 +1313,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
                     <div>
                       <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Text Color</label>
                       <div className="flex items-center space-x-3">
-                        <input 
+                        <input
                           type="color"
                           value={data.heroTextColor || '#ffffff'}
                           onChange={(e) => handleChange('heroTextColor', e.target.value)}
@@ -1271,7 +1330,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div className="space-y-6">
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Meta Description</label>
-                <textarea 
+                <textarea
                   value={data.metaDescription}
                   onChange={(e) => handleChange('metaDescription', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-24 resize-none"
@@ -1279,7 +1338,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Meta Keywords</label>
-                <textarea 
+                <textarea
                   value={data.metaKeywords}
                   onChange={(e) => handleChange('metaKeywords', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all h-32 resize-none"
@@ -1292,7 +1351,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Google Analytics ID</label>
-                <input 
+                <input
                   type="text"
                   placeholder="G-XXXXXXXXXX"
                   value={data.googleAnalyticsId}
@@ -1302,7 +1361,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Google Search Console ID</label>
-                <input 
+                <input
                   type="text"
                   placeholder="google-site-verification=..."
                   value={data.googleSearchConsoleId}
@@ -1314,7 +1373,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Bing Webmaster ID</label>
-                <input 
+                <input
                   type="text"
                   value={data.bingWebmasterId}
                   onChange={(e) => handleChange('bingWebmasterId', e.target.value)}
@@ -1323,7 +1382,7 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
               <div>
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Facebook Pixel ID</label>
-                <input 
+                <input
                   type="text"
                   value={data.facebookPixelId}
                   onChange={(e) => handleChange('facebookPixelId', e.target.value)}
@@ -1378,8 +1437,8 @@ const SiteSettings = ({ initialData, onSave, saving, onChange }: any) => {
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={data.isMaintenanceMode}
                 onChange={(e) => handleChange('isMaintenanceMode', e.target.checked)}
                 className="sr-only peer"
@@ -1413,7 +1472,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Announcement Banner</h2>
-        <button 
+        <button
           onClick={() => onSave(data)}
           disabled={saving}
           className="flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -1430,8 +1489,8 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <span className="font-bold text-gray-900 dark:text-white">Banner Configuration</span>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={data.isEnabled}
               onChange={(e) => handleChange('isEnabled', e.target.checked)}
               className="sr-only peer"
@@ -1443,7 +1502,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
         <div className="space-y-6">
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Banner Message</label>
-            <input 
+            <input
               type="text"
               value={data.message}
               onChange={(e) => handleChange('message', e.target.value)}
@@ -1454,7 +1513,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Link URL</label>
-              <input 
+              <input
                 type="url"
                 value={data.link}
                 onChange={(e) => handleChange('link', e.target.value)}
@@ -1463,7 +1522,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
             </div>
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Link Label</label>
-              <input 
+              <input
                 type="text"
                 value={data.linkLabel}
                 onChange={(e) => handleChange('linkLabel', e.target.value)}
@@ -1476,7 +1535,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Background Color</label>
               <div className="flex items-center space-x-2">
-                <input 
+                <input
                   type="color"
                   value={data.bgColor}
                   onChange={(e) => handleChange('bgColor', e.target.value)}
@@ -1488,7 +1547,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Text Color</label>
               <div className="flex items-center space-x-2">
-                <input 
+                <input
                   type="color"
                   value={data.textColor}
                   onChange={(e) => handleChange('textColor', e.target.value)}
@@ -1499,7 +1558,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
             </div>
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Auto-Expire Date</label>
-              <input 
+              <input
                 type="date"
                 value={data.expiryDate ? format(data.expiryDate.toDate(), 'yyyy-MM-dd') : ''}
                 onChange={(e) => handleChange('expiryDate', e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null)}
@@ -1512,7 +1571,7 @@ const BannerSettings = ({ initialData, onSave, saving, onChange }: any) => {
         {/* Preview */}
         <div className="mt-10">
           <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Live Preview</label>
-          <div 
+          <div
             className="p-4 rounded-xl flex flex-col sm:flex-row items-center justify-center text-center space-y-2 sm:space-y-0 sm:space-x-4 shadow-lg"
             style={{ backgroundColor: data.bgColor, color: data.textColor }}
           >
@@ -1535,7 +1594,7 @@ const NewsletterSettings = ({ subscribers, onDelete, onExport }: any) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Newsletter & Subscribers</h2>
-        <button 
+        <button
           onClick={onExport}
           className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
         >
@@ -1570,7 +1629,7 @@ const NewsletterSettings = ({ subscribers, onDelete, onExport }: any) => {
                 <td className="py-4 text-right">
                   {deletingId === sub.id ? (
                     <div className="flex items-center justify-end space-x-2">
-                      <button 
+                      <button
                         onClick={() => {
                           onDelete(sub.id);
                           setDeletingId(null);
@@ -1579,7 +1638,7 @@ const NewsletterSettings = ({ subscribers, onDelete, onExport }: any) => {
                       >
                         Confirm
                       </button>
-                      <button 
+                      <button
                         onClick={() => setDeletingId(null)}
                         className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-black uppercase rounded-lg hover:bg-gray-200 transition-all"
                       >
@@ -1587,7 +1646,7 @@ const NewsletterSettings = ({ subscribers, onDelete, onExport }: any) => {
                       </button>
                     </div>
                   ) : (
-                    <button 
+                    <button
                       onClick={() => setDeletingId(sub.id)}
                       className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                     >
@@ -1641,7 +1700,7 @@ const PushSettings = ({ subscribers, onRefresh }: any) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Push Notifications</h2>
-        <button 
+        <button
           onClick={sendTestNotification}
           disabled={testLoading || subscribers.length === 0}
           className="flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -1704,7 +1763,7 @@ const AccountSettings = ({ profile, onSave, saving, onChange }: any) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-black text-gray-900 dark:text-white">Admin Account Settings</h2>
-        <button 
+        <button
           onClick={() => onSave(data)}
           disabled={saving}
           className="flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-blue-900 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
@@ -1740,7 +1799,7 @@ const AccountSettings = ({ profile, onSave, saving, onChange }: any) => {
         <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Display Name</label>
-            <input 
+            <input
               type="text"
               value={data.displayName}
               onChange={(e) => handleChange('displayName', e.target.value)}
@@ -1749,7 +1808,7 @@ const AccountSettings = ({ profile, onSave, saving, onChange }: any) => {
           </div>
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
-            <input 
+            <input
               type="email"
               value={data.email}
               onChange={(e) => handleChange('email', e.target.value)}

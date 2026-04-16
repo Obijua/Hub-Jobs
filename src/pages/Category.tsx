@@ -1,5 +1,6 @@
 
 /*
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Post, Category as CategoryType, CategoryConfig, MonetizationConfig } from '../types';
@@ -34,8 +35,8 @@ import { AdSlot } from '../components/ads/AdSlot';
 
 import { Sparkles, X as CloseIcon, FileText, ArrowRight } from 'lucide-react';
 
-const MobileDocPromo = ({ prices }: { prices: any }) => (
-  <div className="lg:hidden my-6 p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl text-white shadow-lg">
+const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ prices }, ref) => (
+  <div ref={ref} className="lg:hidden my-6 p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl text-white shadow-lg">
     <div className="flex items-center space-x-2 mb-2">
       <Sparkles className="h-3 w-3 text-yellow-200" />
       <span className="text-[9px] font-black uppercase tracking-widest">Premium Tools</span>
@@ -56,7 +57,7 @@ const MobileDocPromo = ({ prices }: { prices: any }) => (
       Build My Document ✨
     </Link>
   </div>
-);
+));
 
 const MobilePopup = ({ prices }: { prices: any }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -392,7 +393,9 @@ export const Category = () => {
     </div>
   );
 };
+
 */
+
 
 
 
@@ -545,7 +548,7 @@ export const Category = () => {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'deadline'>('newest');
   const [visibleCount, setVisibleCount] = useState(12);
   const [meta, setMeta] = useState<CategoryConfig | null>(null);
-  const [adFrequency, setAdFrequency] = useState(2);
+  const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
   const [docPrices, setDocPrices] = useState<any>(null);
 
   const categoryIcons: any = {
@@ -574,6 +577,13 @@ export const Category = () => {
   }, []);
 
   useEffect(() => {
+    const unsubMonetization = onSnapshot(doc(db, 'settings', 'monetization'), (doc) => {
+      if (doc.exists()) setMonetization(doc.data() as MonetizationConfig);
+    });
+    return () => unsubMonetization();
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (!slug) return;
       setLoading(true);
@@ -585,13 +595,6 @@ export const Category = () => {
           setMeta({ id: snapMeta.docs[0].id, ...snapMeta.docs[0].data() } as CategoryConfig);
         } else {
           setMeta(null);
-        }
-
-        // Fetch monetization settings for ad frequency
-        const monSnap = await getDoc(doc(db, 'settings', 'monetization'));
-        if (monSnap.exists()) {
-          const monData = monSnap.data() as MonetizationConfig;
-          setAdFrequency(monData.adFrequency || 2);
         }
 
         // Fetch posts
@@ -738,7 +741,9 @@ export const Category = () => {
                     items.push(<MobileDocPromo key={`promo-${post.id}`} prices={docPrices} />);
                   }
 
-                  if ((index + 1) % adFrequency === 0) {
+                  if (monetization?.blogAdsEnabled && 
+                      (index + 1) % (monetization.homepageAdFrequency || 5) === 0 &&
+                      (index + 1) / (monetization.homepageAdFrequency || 5) <= (monetization.homepageMaxAds || 3)) {
                     items.push(
                       <motion.div 
                         key={`ad-${post.id}`} 
@@ -797,4 +802,3 @@ export const Category = () => {
     </div>
   );
 };
-

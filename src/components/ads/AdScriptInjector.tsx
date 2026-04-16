@@ -78,6 +78,11 @@ export const AdScriptInjector = () => {
         head.appendChild(script);
       }
     }
+
+    // AdsTarget Global Script
+    if (config.adsTargetGlobalScript) {
+      injectFragment('adstarget-global', config.adsTargetGlobalScript);
+    }
   }, [config]);
 
   return null;

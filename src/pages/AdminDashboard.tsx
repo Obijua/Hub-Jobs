@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Post } from '../types';
-import { 
-  Plus, 
-  LayoutDashboard, 
-  LogOut, 
-  TrendingUp, 
-  Users, 
-  FileText, 
-  CheckCircle2, 
+import {
+  Plus,
+  LayoutDashboard,
+  LogOut,
+  TrendingUp,
+  Users,
+  FileText,
+  CheckCircle2,
   ArrowRight,
   Eye,
   Calendar,
@@ -22,13 +22,13 @@ import {
 import { format } from 'date-fns';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Cell
 } from 'recharts';
@@ -69,9 +69,11 @@ export const AdminDashboard = () => {
         getDoc(doc(db, 'settings', 'monetization')),
         getDocs(query(collection(db, 'document_payments'), orderBy('paidAt', 'desc'), limit(10)))
       ]);
-      setPosts(fetchedPosts);
-      setSubscriberCount(count);
-      setRecentSubscribers(subscribers);
+
+      // ✅ Fix: provide defaults
+      setPosts(fetchedPosts ?? []);
+      setSubscriberCount(count ?? 0);
+      setRecentSubscribers(subscribers ?? []);
       if (monetDoc.exists()) {
         setMonetizationConfig(monetDoc.data() as MonetizationConfig);
       }
@@ -79,15 +81,15 @@ export const AdminDashboard = () => {
       // Process document payments
       const payments = paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const totalRevenue = payments.reduce((acc: number, p: any) => acc + (p.amount || 0), 0);
-      
+
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       const thisMonth = payments.filter((p: any) => {
         const date = p.paidAt?.toDate();
         return date && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
       });
-      
+
       const todayPayments = payments.filter((p: any) => {
         const date = p.paidAt?.toDate();
         return date && date >= today;
@@ -173,7 +175,7 @@ export const AdminDashboard = () => {
             <p className="text-gray-500 dark:text-gray-400 font-medium">Welcome back, Admin</p>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <Link
             to="/admin/settings"
@@ -193,7 +195,7 @@ export const AdminDashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         {stats.map((stat) => (
-          <motion.div 
+          <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -224,22 +226,22 @@ export const AdminDashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 700, fill: '#9CA3AF' }}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 700, fill: '#9CA3AF' }}
                 />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'transparent' }}
-                  contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: 'none', 
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: 'none',
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     backgroundColor: '#1E3A8A',
                     color: '#fff'
@@ -296,25 +298,62 @@ export const AdminDashboard = () => {
             </div>
             <h3 className="text-xl font-black text-gray-900 dark:text-white">Ad Monetization</h3>
           </div>
-          
+
           <div className="space-y-6">
             {monetizationConfig ? (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(monetizationConfig.networks).map(([key, network]) => (
-                    <div key={key} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{key}</span>
-                        <div className={cn(
-                          "h-2 w-2 rounded-full",
-                          network.isEnabled ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-gray-300"
-                        )} />
-                      </div>
-                      <p className="text-xs font-bold text-gray-900 dark:text-white">
-                        {network.isEnabled ? 'Active' : 'Disabled'}
-                      </p>
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Master Switch</span>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        monetizationConfig.masterSwitch ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-gray-300"
+                      )} />
                     </div>
-                  ))}
+                    <p className="text-xs font-bold text-gray-900 dark:text-white">
+                      {monetizationConfig.masterSwitch ? 'Active' : 'Disabled'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Homepage Ads</span>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        monetizationConfig.homepageAdsEnabled ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-gray-300"
+                      )} />
+                    </div>
+                    <p className="text-xs font-bold text-gray-900 dark:text-white">
+                      {monetizationConfig.homepageAdsEnabled ? 'Active' : 'Disabled'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Article Ads</span>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        monetizationConfig.articleAdsEnabled ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-gray-300"
+                      )} />
+                    </div>
+                    <p className="text-xs font-bold text-gray-900 dark:text-white">
+                      {monetizationConfig.articleAdsEnabled ? 'Active' : 'Disabled'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Blog Ads</span>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        monetizationConfig.blogAdsEnabled ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-gray-300"
+                      )} />
+                    </div>
+                    <p className="text-xs font-bold text-gray-900 dark:text-white">
+                      {monetizationConfig.blogAdsEnabled ? 'Active' : 'Disabled'}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -344,7 +383,7 @@ export const AdminDashboard = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <Link 
+        <Link
           to="/admin/posts/new"
           className="group bg-primary p-8 rounded-3xl text-white flex items-center justify-between hover:bg-blue-900 transition-all shadow-xl shadow-primary/20"
         >
@@ -359,7 +398,7 @@ export const AdminDashboard = () => {
           </div>
           <ArrowRight className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all translate-x-[-20px] group-hover:translate-x-0" />
         </Link>
-        <Link 
+        <Link
           to="/admin/posts"
           className="group bg-white dark:bg-gray-900 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:shadow-xl transition-all shadow-sm"
         >
@@ -374,7 +413,7 @@ export const AdminDashboard = () => {
           </div>
           <ArrowRight className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-all translate-x-[-20px] group-hover:translate-x-0" />
         </Link>
-        <Link 
+        <Link
           to="/admin/settings"
           onClick={() => localStorage.setItem('admin_settings_tab', 'documents')}
           className="group bg-white dark:bg-gray-900 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:shadow-xl transition-all shadow-sm"
@@ -390,7 +429,7 @@ export const AdminDashboard = () => {
           </div>
           <ArrowRight className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-all translate-x-[-20px] group-hover:translate-x-0" />
         </Link>
-        <Link 
+        <Link
           to="/admin/settings"
           className="group bg-white dark:bg-gray-900 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:shadow-xl transition-all shadow-sm"
         >

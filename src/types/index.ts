@@ -129,11 +129,41 @@ export interface AdNetworkConfig {
 }
 
 export interface AdZoneConfig {
-  isEnabled: boolean;
+  enabled: boolean;
   adCode: string;
+  network?: string;
 }
 
 export interface MonetizationConfig {
+  masterSwitch: boolean;
+  
+  // Homepage Settings
+  homepageAdsEnabled: boolean;
+  homepageAdNetwork: string;
+  homepageAdCode: string;
+  homepageAdFrequency: number;
+  homepageMaxAds: number;
+  heroAdEnabled: boolean;
+  heroAdCode: string;
+
+  // Article Settings
+  articleAdsEnabled: boolean;
+  articleAdNetwork: string;
+  articleAdCode: string;
+  articleAdFrequency: number;
+  articleMaxAds: number;
+  aboveArticleAdEnabled: boolean;
+  belowArticleAdEnabled: boolean;
+  sidebarAdEnabled: boolean;
+  sidebarAdCode: string;
+
+  // Blog/Category Settings
+  blogAdsEnabled: boolean;
+
+  // AdsTarget Global
+  adsTargetGlobalScript: string;
+
+  // Legacy/General
   adsenseEnabled: boolean;
   adsensePublisherId: string;
   adsenseInArticleSlot: string;
@@ -155,13 +185,6 @@ export interface MonetizationConfig {
   hideAdsOnMobile: boolean;
   hideAdsForAdmin: boolean;
   
-  // Legacy fields (keeping for compatibility if needed, but the UI will use the above)
-  networks?: {
-    adsense: AdNetworkConfig;
-    adsterra: AdNetworkConfig;
-    monetag: AdNetworkConfig;
-    custom: AdNetworkConfig;
-  };
   zones?: {
     [key: string]: AdZoneConfig;
   };

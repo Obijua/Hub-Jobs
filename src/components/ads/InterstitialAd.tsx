@@ -9,42 +9,58 @@ export const InterstitialAd = () => {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const docSnap = await getDoc(doc(db, 'settings', 'monetization'));
-        if (docSnap.exists()) {
-          const data = docSnap.data() as MonetizationConfig;
-          setConfig(data);
-          
-          const isAdmin = !!auth.currentUser;
-          const shouldShow = data.zones['interstitial-popunder']?.isEnabled && 
-                            (!isAdmin || !data.hideAdsForAdmin);
-          
-          if (shouldShow) {
-            // Check if shown in this session
-            const lastShown = sessionStorage.getItem('interstitial-last-shown');
-            const now = Date.now();
-            
-            // Show every 10 minutes or once per session
-            if (!lastShown || (now - parseInt(lastShown)) > 10 * 60 * 1000) {
-              const container = document.createElement('div');
-              container.id = 'interstitial-container';
-              container.innerHTML = data.zones['interstitial-popunder'].adCode;
-              
-              // Execute scripts
-              const scripts = container.getElementsByTagName('script');
-              for (let i = 0; i < scripts.length; i++) {
-                const s = document.createElement('script');
-                const original = scripts[i];
-                for (let j = 0; j < original.attributes.length; j++) {
-                  const attr = original.attributes[j];
-                  s.setAttribute(attr.name, attr.value);
-                }
-                s.textContent = original.textContent;
-                document.body.appendChild(s);
-              }
-              
-              sessionStorage.setItem('interstitial-last-shown', now.toString());
+        const docRef = doc(db, 'settings', 'monetization');
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) return;
+
+        const data = docSnap.data() as MonetizationConfig;
+        setConfig(data);
+
+        const isAdmin = !!auth.currentUser;
+
+        // ✅ Safely access zone
+        const zone = data.zones?.['interstitial-popunder'];
+
+        const shouldShow =
+          zone?.enabled &&
+          (!isAdmin || !data.hideAdsForAdmin);
+
+        if (!shouldShow || !zone) return;
+
+        // Check session timing
+        const lastShown = sessionStorage.getItem('interstitial-last-shown');
+        const now = Date.now();
+
+        if (
+          !lastShown ||
+          now - parseInt(lastShown, 10) > 10 * 60 * 1000
+        ) {
+          const container = document.createElement('div');
+          container.id = 'interstitial-container';
+          container.innerHTML = zone.adCode;
+
+          // Execute scripts safely
+          const scripts = container.getElementsByTagName('script');
+
+          for (let i = 0; i < scripts.length; i++) {
+            const original = scripts[i];
+            const s = document.createElement('script');
+
+            // Copy attributes
+            for (let j = 0; j < original.attributes.length; j++) {
+              const attr = original.attributes[j];
+              s.setAttribute(attr.name, attr.value);
             }
+
+            s.textContent = original.textContent;
+            document.body.appendChild(s);
           }
+
+          sessionStorage.setItem(
+            'interstitial-last-shown',
+            now.toString()
+          );
         }
       } catch (error) {
         console.error('Error fetching monetization config:', error);

@@ -32,44 +32,37 @@ const InArticleAd = ({ position }: InArticleAdProps) => {
       return;
     initialized.current = true;
 
-    // Initialize AdSense if enabled
-    if (adConfig.adsenseEnabled && adConfig.adsenseInArticleSlot) {
-      try {
-        ((window as any).adsbygoogle = 
-          (window as any).adsbygoogle || []).push({});
-      } catch (e) {}
-      return; // Stop if AdSense is used
-    }
+    // Initialize Ad if enabled
+    if (!adConfig.masterSwitch || !adConfig.articleAdsEnabled) return;
 
-    // Inject Adsterra script if enabled
-    if (adConfig.adsterraEnabled && adConfig.adsterraInArticleCode) {
-      const container = adRef.current;
-      const range = document.createRange();
-      const fragment = range.createContextualFragment(
-        adConfig.adsterraInArticleCode
-      );
-      container.appendChild(fragment);
-      return; // Stop if Adsterra is used
-    }
+    const container = adRef.current;
+    if (!container) return;
 
-    // Inject Monetag script if enabled
-    if (adConfig.monetagEnabled && adConfig.monetagInArticleCode) {
-      const container = adRef.current;
-      const range = document.createRange();
-      const fragment = range.createContextualFragment(
-        adConfig.monetagInArticleCode
-      );
+    const network = adConfig.articleAdNetwork;
+    const code = adConfig.articleAdCode;
+
+    if (network === 'Off' || !code.trim()) return;
+
+    // Inject the ad code for all networks except legacy AdSense slot config
+    const range = document.createRange();
+    try {
+      const fragment = range.createContextualFragment(code);
+      container.innerHTML = ''; // Clear previous
       container.appendChild(fragment);
+
+      // If it's AdSense, we might need to push
+      if (network === 'AdSense' || code.includes('adsbygoogle')) {
+        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+      }
+    } catch (e) {
+      console.error('Error injecting ad code:', e);
     }
   }, [adConfig]);
 
-  // Don't render anything if no ad network is enabled
-  if (!adConfig) return null;
-  if (
-    !adConfig.adsenseEnabled && 
-    !adConfig.adsterraEnabled && 
-    !adConfig.monetagEnabled
-  ) return null;
+  // Don't render anything if no ad config or ads disabled
+  if (!adConfig || !adConfig.masterSwitch || !adConfig.articleAdsEnabled) return null;
+  
+  if (adConfig.articleAdNetwork === 'Off') return null;
 
   // Check visibility settings
   const isAdmin = !!localStorage.getItem('cb_admin_session');
@@ -97,8 +90,11 @@ const InArticleAd = ({ position }: InArticleAdProps) => {
       </div>
 
       <div className="flex justify-center min-h-[100px]">
-        {/* Priority: AdSense > Adsterra > Monetag */}
-        {adConfig.adsenseEnabled && adConfig.adsensePublisherId && adConfig.adsenseInArticleSlot ? (
+        {/* Use the ref container for all network codes */}
+        <div ref={adRef} className="w-full flex justify-center" />
+        
+        {/* Fallback to legacy AdSense slot if no code provided but AdSense is selected */}
+        {adConfig.articleAdNetwork === 'AdSense' && !adConfig.articleAdCode && adConfig.adsensePublisherId && adConfig.adsenseInArticleSlot && (
           <ins
             className="adsbygoogle"
             style={{ display: 'block', textAlign: 'center', width: '100%' }}
@@ -107,8 +103,6 @@ const InArticleAd = ({ position }: InArticleAdProps) => {
             data-ad-client={adConfig.adsensePublisherId}
             data-ad-slot={adConfig.adsenseInArticleSlot}
           />
-        ) : (
-          <div ref={adRef} className="w-full flex justify-center" />
         )}
       </div>
     </div>

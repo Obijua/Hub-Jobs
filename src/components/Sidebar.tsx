@@ -11,6 +11,9 @@ import { motion } from 'motion/react';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
+import { AdSlot } from './ads/AdSlot';
+import AdUnit from './AdUnit';
+
 export const Sidebar = () => {
   const [docPrices, setDocPrices] = useState<any>(null);
 
@@ -25,6 +28,9 @@ export const Sidebar = () => {
 
   return (
     <div className="space-y-4">
+      <AdSlot zone="sidebar" />
+      <AdUnit slot="sidebar" />
+
       {/* 1. Community Stats Card — NOT sticky, scrolls away */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}

@@ -2,14 +2,14 @@ import { auth } from '../lib/firebase';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Post } from '../types';
-import { 
-  Calendar, 
-  ArrowLeft, 
-  ExternalLink, 
-  Share2, 
-  Briefcase, 
-  TrendingUp, 
-  Clock, 
+import {
+  Calendar,
+  ArrowLeft,
+  ExternalLink,
+  Share2,
+  Briefcase,
+  TrendingUp,
+  Clock,
   Tag as TagIcon,
   ChevronRight,
   Home as HomeIcon,
@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, intervalToDuration } from 'date-fns';
 import { motion } from 'motion/react';
-import { getPostBySlug, incrementViews, getAllPosts, subscribe } from '../lib/posts';
+import { getPostBySlug, incrementViews, getAllPosts, subscribe, injectAdsIntoContent } from '../lib/posts';
 import { PostCard } from '../components/PostCard';
 import { cn } from '../lib/utils';
 import { SEO } from '../components/SEO';
@@ -31,13 +31,13 @@ import { FloatingActions } from '../components/FloatingActions';
 import { AdSlot } from '../components/ads/AdSlot';
 import AdUnit from '../components/AdUnit';
 import InArticleAd from '../components/InArticleAd';
-import { splitIntoParagraphs } from '../lib/injectAds';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { toast } from 'sonner';
 import { sendWelcomeEmail } from '../lib/email';
 import { trackEvent } from '../lib/analytics';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { MonetizationConfig } from '../types';
 
 export const PostDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -51,36 +51,16 @@ export const PostDetail = () => {
   const navigate = useNavigate();
   const isAdmin = auth.currentUser?.email === 'clementegrinya@gmail.com';
   const { toggleBookmark, isBookmarked } = useBookmarks();
-  const [adFrequency, setAdFrequency] = useState(2);
-  const [maxAds, setMaxAds] = useState(6);
+  const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
 
   useEffect(() => {
-    const fetchAdSettings = async () => {
-      const snap = await getDoc(
-        doc(db, 'settings', 'monetization')
-      );
-      const data = snap.data();
-      if (data) {
-        setAdFrequency(data.adFrequency || 2);
-        setMaxAds(data.maxAdsPerArticle || 6);
+    const unsub = onSnapshot(doc(db, 'settings', 'monetization'), (doc) => {
+      if (doc.exists()) {
+        setMonetization(doc.data() as MonetizationConfig);
       }
-    };
-    fetchAdSettings();
+    });
+    return () => unsub();
   }, []);
-
-  // Generate ad positions dynamically
-  const getAdPositions = (
-    totalParagraphs: number, 
-    frequency: number, 
-    max: number
-  ): number[] => {
-    const positions: number[] = [];
-    for (let i = frequency; i < totalParagraphs; i += frequency) {
-      positions.push(i);
-      if (positions.length >= max) break;
-    }
-    return positions;
-  };
 
   // Countdown state
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number } | null>(null);
@@ -95,11 +75,11 @@ export const PostDetail = () => {
           setPost(fetchedPost);
           incrementViews(fetchedPost.id);
           trackEvent('Post', 'view', fetchedPost.title);
-          
+
           // Fetch related posts
-          const related = await getAllPosts({ 
-            category: fetchedPost.category, 
-            limitCount: 4 
+          const related = await getAllPosts({
+            category: fetchedPost.category,
+            limitCount: 4
           });
           setRelatedPosts(related.filter(p => p.id !== fetchedPost.id).slice(0, 3));
         }
@@ -121,7 +101,7 @@ export const PostDetail = () => {
     const timer = setInterval(() => {
       const now = new Date();
       const deadline = post.deadline.toDate();
-      
+
       if (deadline > now) {
         const duration = intervalToDuration({ start: now, end: deadline });
         setTimeLeft({
@@ -187,7 +167,7 @@ export const PostDetail = () => {
     if (!post) return [];
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`Check out this opportunity: ${post.title}`);
-    
+
     return [
       { name: 'WhatsApp', icon: MessageCircle, color: 'bg-[#25D366]', url: `https://wa.me/?text=${text}%20${url}` },
       { name: 'Twitter', icon: Twitter, color: 'bg-[#1DA1F2]', url: `https://twitter.com/intent/tweet?url=${url}&text=${text}` },
@@ -260,15 +240,15 @@ export const PostDetail = () => {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen pb-20 transition-colors duration-300">
-      <SEO 
-        title={post.seoTitle || post.title} 
+      <SEO
+        title={post.seoTitle || post.title}
         description={post.metaDescription || post.description.replace(/[#*`]/g, '').slice(0, 160)}
         image={post.ogImage || post.thumbnail}
         type="article"
         keywords={[post.focusKeyword, ...(post.tags || [])].filter(Boolean).join(', ')}
         schema={jobPostingSchema}
       />
-      
+
       <FloatingActions />
 
       {/* 1. BREADCRUMB */}
@@ -292,38 +272,29 @@ export const PostDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white dark:bg-gray-900 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800"
             >
               {/* 2. THUMBNAIL */}
-              <div className="aspect-video w-full relative overflow-hidden">
-                {post.thumbnail ? (
-                  <img 
-                    src={post.thumbnail} 
-                    alt={post.title} 
+              {post.thumbnail && post.thumbnail.trim() !== '' && (
+                <div className="w-full aspect-video overflow-hidden rounded-2xl mb-8">
+                  <img
+                    src={post.thumbnail}
+                    alt={post.title}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      // If image fails to load, hide entire container
+                      const target = e.target as HTMLImageElement;
+                      if (target.parentElement) {
+                        target.parentElement.style.display = 'none';
+                      }
+                    }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <Briefcase className="h-20 w-20 text-gray-200 dark:text-gray-700" />
-                  </div>
-                )}
-                <div className="absolute top-6 left-6">
-                  <span className="bg-accent text-primary text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest shadow-2xl">
-                    {post.category.replace('-', ' ')}
-                  </span>
                 </div>
-                {isExpired && (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                    <div className="bg-red-600 text-white px-8 py-3 rounded-2xl font-black text-2xl uppercase tracking-widest shadow-2xl rotate-[-5deg]">
-                      Expired
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* 3. POST HEADER */}
               <div className="p-8 md:p-12">
@@ -361,7 +332,7 @@ export const PostDetail = () => {
                 <div className="flex flex-wrap gap-3 mb-10 pb-8 border-b border-gray-100 dark:border-gray-800">
                   <span className="w-full text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Share this opportunity</span>
                   {shareLinks.map((link) => (
-                    <a 
+                    <a
                       key={link.name}
                       href={link.url}
                       target="_blank"
@@ -371,7 +342,7 @@ export const PostDetail = () => {
                       <link.icon className="h-4 w-4 mr-2" /> {link.name}
                     </a>
                   ))}
-                  <button 
+                  <button
                     onClick={copyToClipboard}
                     className="flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white rounded-xl text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
                   >
@@ -383,8 +354,8 @@ export const PostDetail = () => {
                     onClick={() => {
                       toggleBookmark(post.id);
                       trackEvent('Post', 'bookmark', post.title);
-                      toast.success(isBookmarked(post.id) 
-                        ? 'Removed from saved' 
+                      toast.success(isBookmarked(post.id)
+                        ? 'Removed from saved'
                         : '🔖 Saved!');
                     }}
                     className={cn(
@@ -395,9 +366,9 @@ export const PostDetail = () => {
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     )}
                   >
-                    {isBookmarked(post.id) 
-                      ? <><BookmarkCheck className="w-4 h-4"/> Saved</>
-                      : <><Bookmark className="w-4 h-4"/> Save</>
+                    {isBookmarked(post.id)
+                      ? <><BookmarkCheck className="w-4 h-4" /> Saved</>
+                      : <><Bookmark className="w-4 h-4" /> Save</>
                     }
                   </button>
                 </div>
@@ -405,18 +376,16 @@ export const PostDetail = () => {
                 {/* 4. POST BODY */}
                 <div className="prose prose-lg max-w-none prose-blue dark:prose-invert prose-img:rounded-xl prose-a:text-blue-600 prose-headings:font-bold">
                   {(() => {
-                    const paragraphs = splitIntoParagraphs(post.description || '');
-                    const adPositions = getAdPositions(
-                      paragraphs.length, 
-                      adFrequency, 
-                      maxAds
-                    );
+                    const frequency = monetization?.articleAdFrequency || 2;
+                    const maxAds = monetization?.articleMaxAds || 6;
+
+                    // Split by paragraphs
+                    const paragraphs = (post.description || '').split(/<\/p>/i).filter(p => p.trim() !== '');
 
                     return paragraphs.map((para, index) => (
                       <div key={index}>
-                        <div dangerouslySetInnerHTML={{ __html: para }} />
-                        {adPositions.includes(index + 1) && 
-                         paragraphs.length > index + 1 && (
+                        <div dangerouslySetInnerHTML={{ __html: para.includes('<p') ? para + '</p>' : `<p>${para}</p>` }} />
+                        {(index + 1) % frequency === 0 && (index + 1) / frequency <= maxAds && index < paragraphs.length - 1 && (
                           <InArticleAd position={index + 1} />
                         )}
                       </div>
@@ -432,7 +401,7 @@ export const PostDetail = () => {
                 {post.tags && post.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-12">
                     {post.tags.map(tag => (
-                      <button 
+                      <button
                         key={tag}
                         onClick={() => navigate(`/search?q=${tag}`)}
                         className="flex items-center text-xs font-bold text-gray-500 bg-gray-100 dark:bg-gray-800 hover:bg-primary hover:text-white dark:hover:bg-accent dark:hover:text-primary px-3 py-1.5 rounded-lg transition-all"
@@ -448,9 +417,9 @@ export const PostDetail = () => {
                   <div className="pt-8 border-t border-gray-100 dark:border-gray-800 space-y-4">
                     {post.externalLink && (
                       <div>
-                        <a 
-                          href={post.externalLink} 
-                          target="_blank" 
+                        <a
+                          href={post.externalLink}
+                          target="_blank"
                           rel="noopener noreferrer"
                           style={{ backgroundColor: post.ctaColor || undefined }}
                           onClick={() => trackEvent('Post', 'apply_click', post.title)}
@@ -459,7 +428,7 @@ export const PostDetail = () => {
                             !post.ctaColor && "bg-primary hover:bg-blue-900 shadow-primary/20"
                           )}
                         >
-                          {post.externalLinkText || post.ctaText || getCtaLabel(post.category)} 
+                          {post.externalLinkText || post.ctaText || getCtaLabel(post.category)}
                           <ExternalLink className="ml-2 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                         </a>
                         <p className="text-center text-gray-400 text-[10px] mt-3">
@@ -469,9 +438,9 @@ export const PostDetail = () => {
                     )}
 
                     {post.whatsappNumber && (
-                      <a 
+                      <a
                         href={`https://wa.me/${post.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello, I am interested in: ${post.title}\n\n${window.location.href}`)}`}
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => trackEvent('Post', 'whatsapp_click', post.title)}
                         className="w-full inline-flex items-center justify-center px-6 py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-green-500/20 group"
@@ -501,11 +470,11 @@ export const PostDetail = () => {
             )}
           </div>
 
-            {/* Sidebar */}
-            <div className="space-y-8">
-              <AdSlot zone="sidebar" />
-              
-              {/* 8. DEADLINE COUNTDOWN */}
+          {/* Sidebar */}
+          <div className="space-y-8">
+            <AdSlot zone="sidebar" />
+
+            {/* 8. DEADLINE COUNTDOWN */}
             {post.deadline && timeLeft && !isExpired && (
               <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-sm text-center">
                 <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-6">Application Deadline</h3>
@@ -535,22 +504,22 @@ export const PostDetail = () => {
               <Mail className="h-10 w-10 text-accent mb-6" />
               <h3 className="text-2xl font-bold mb-4">Get Opportunities in Your Inbox</h3>
               <p className="text-blue-100 text-sm mb-8">Join thousands of Nigerians who get daily job and scholarship alerts from Hub & Jobs</p>
-              
+
               {subscribed ? (
                 <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl text-accent font-bold text-center">
                   Successfully Subscribed!
                 </div>
               ) : (
                 <form onSubmit={handleSubscribe} className="space-y-3">
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
-                    placeholder="Your email address" 
+                    placeholder="Your email address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-blue-200 focus:ring-2 focus:ring-accent outline-none"
                   />
-                  <button 
+                  <button
                     type="submit"
                     disabled={submitting}
                     className="w-full bg-accent text-primary font-bold py-3 rounded-xl hover:bg-yellow-500 transition-all flex items-center justify-center"
@@ -568,14 +537,14 @@ export const PostDetail = () => {
 };
 
 const Star = ({ className, fill }: { className?: string; fill?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill={fill || "none"} 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill={fill || "none"}
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
